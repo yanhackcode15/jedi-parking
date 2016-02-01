@@ -1,0 +1,43 @@
+@media(max-width:767px) {
+    .navbar .navbar-form {
+        width: 250px;
+        padding-left:0;
+        padding-right:0;
+    }
+}
+@media(min-width:768px) {
+    .navbar .navbar-form {
+        width: 350px;
+    }
+}
+.navbar .navbar-form {
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-right: 0;
+    margin-left: 0;
+    border: 0;
+    -webkit-box-shadow: none;
+    box-shadow: none;
+}
+
+button.btn.btn-default {
+    border-radius: 0;
+}
+
+input.form-control {
+    border-radius: 0;
+}
+
+
+body, html {
+  height: 100%;
+  width: 100%;
+}
+
+
+#map {
+/*    top: 0;
+    bottom: 0;
+    width: 100%;*/
+    height: 100%;
+}
