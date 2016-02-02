@@ -1,5 +1,7 @@
 source 'https://rubygems.org'
 
+gem 'activeresource'
+
 gem 'bootstrap-sass', '~> 3.3.6'
 
 gem 'rails_12factor', group: :production
