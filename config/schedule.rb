@@ -21,5 +21,5 @@
 # env :PATH, ENV['PATH']
 env :GEM_PATH, ENV['GEM_PATH']
 every 5.minutes do
-	rake "pull_sensor_data"
+	rake "aggregate_data:pull_sensor_data"
 end

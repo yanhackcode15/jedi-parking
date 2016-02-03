@@ -1,7 +1,7 @@
 source 'https://rubygems.org'
 
 gem 'activesupport'
-gem 'javan-whenever', :require => false
+gem 'whenever', '~> 0.9.4', :require => false
 gem 'httparty'
 gem 'json'
 gem 'activeresource'

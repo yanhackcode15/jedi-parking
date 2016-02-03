@@ -12,6 +12,7 @@ class Meter < ActiveRecord::Base
       m.active = meter['active']
       m.latitude = meter['latitude']
       m.longitude = meter['longitude']
+      m.address = meter['street_address']
       # set name value however you want to do that
       m.save
       m
