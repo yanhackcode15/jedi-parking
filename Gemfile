@@ -1,5 +1,6 @@
 source 'https://rubygems.org'
 
+ruby "2.2.4"
 gem 'activesupport'
 gem 'whenever', '~> 0.9.4', :require => false
 gem 'httparty'
