@@ -44,6 +44,37 @@
 
     
     map = initMap();
+    loadGeo();
+
+    var id, target, options;
+    function success(pos){
+      var crd = pos.coords;
+      marker = new google.maps.Marker({
+        position: new google.maps.LatLng(crd.latitude, crd.longitude),
+        map: map,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 5,
+          fillColor: 'blue',
+          strokeColor: 'blue',
+          strokeWeight: 2,
+          fillOpacity: 0.8
+        }
+      });
+    }
+    function error(){
+      console.warn('ERROR(' + err.code + '): ' + err.message);
+    }
+    options = {
+      enableHighAccuracy: false,
+      timeout: 5000,
+      maximumAge: 0
+    };
+    target = {
+      latitude : 0,
+      longitude: 0
+    };
+    var watchId = navigator.geolocation.watchPosition(success, error, options);
 
     var infowindow = new google.maps.InfoWindow();
 
@@ -117,8 +148,17 @@
       map.mapTypes.set('map_style', styledMap);
       map.setMapTypeId('map_style');
 
+      
+
+      return map;
+
+
+    }
+
+    function loadGeo(){
+      
       var infoWindow = new google.maps.InfoWindow({map: map});
-      // Try HTML5 geolocation.
+        // Try HTML5 geolocation.
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(function(position) {
           var pos = {
@@ -136,12 +176,8 @@
         // Browser doesn't support Geolocation
         handleLocationError(false, infoWindow, map.getCenter());
       }
-
-      return map;
-
-
     }
-
+      
   </script>
 </body>
 </html>
