@@ -184,7 +184,6 @@
           travelMode: google.maps.TravelMode.DRIVING
         };
         directionsService.route(request, function(result, status) {
-          debugger;
           if (status == google.maps.DirectionsStatus.OK) {
             directionsDisplay.setDirections(result);
           }
