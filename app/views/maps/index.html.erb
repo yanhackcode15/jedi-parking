@@ -40,28 +40,38 @@
       meter[5]=json[i]['event_time'];
       locations[i] = meter;   
     }
-
-    map = initMap();
-    // loadGeo();
-    showDir(map);
-
-    var id, target, options;
     
-    options = {
+    // var id;
+    
+    var options = {
       enableHighAccuracy: false,
       timeout: 5000,
       maximumAge: 0
     };
-    target = {
+    var target = {
       latitude : 0,
       longitude: 0
     };
-
     var watchId = navigator.geolocation.watchPosition(success, error, options);
     var infowindow = new google.maps.InfoWindow();
-    var marker, i;
+    var marker = new google.maps.Marker({
+      // position: new google.maps.LatLng(crd.latitude, crd.longitude),
+      // map: map,
+      // icon: {
+      //   path: google.maps.SymbolPath.CIRCLE,
+      //   scale: 5,
+      //   fillColor: 'blue',
+      //   strokeColor: 'blue',
+      //   strokeWeight: 2,
+      //   fillOpacity: 0.8
+      // }
+    });
 
-    for (i = 0; i < locations.length; i++) { 
+    map = initMap();
+    loadGeo();
+    showDir(map);
+
+    for (var i = 0; i < locations.length; i++) { 
 
       if (locations[i][4]=='SS'){
         marker = new google.maps.Marker({
@@ -103,18 +113,31 @@
 
     function success(pos){
       var crd = pos.coords;
-      marker = new google.maps.Marker({
-        position: new google.maps.LatLng(crd.latitude, crd.longitude),
-        map: map,
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 5,
-          fillColor: 'blue',
-          strokeColor: 'blue',
-          strokeWeight: 2,
-          fillOpacity: 0.8
-        }
-      });
+      var position = new google.maps.LatLng(crd.latitude, crd.longitude);
+      // marker = new google.maps.Marker({
+      //   position: new google.maps.LatLng(crd.latitude, crd.longitude),
+      //   map: map,
+      //   icon: {
+      //     path: google.maps.SymbolPath.CIRCLE,
+      //     scale: 5,
+      //     fillColor: 'blue',
+      //     strokeColor: 'blue',
+      //     strokeWeight: 2,
+      //     fillOpacity: 0.8
+      //   }
+      // });
+      var geoIcon = {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 5,
+        fillColor: 'blue',
+        strokeColor: 'blue',
+        strokeWeight: 2,
+        fillOpacity: 0.8
+      };
+
+      marker.setPosition(position);
+      marker.setMap(map);
+      marker.setOptions(geoIcon);
     }
     
     function error(){
@@ -156,9 +179,10 @@
             lat: position.coords.latitude,
             lng: position.coords.longitude
           };
+          debugger;
           infoWindow.setPosition(pos);
           infoWindow.setContent('You are here!');
-          map.setCenter(pos);
+          // map.setCenter(pos);
         }, function() {
           handleLocationError(true, infoWindow, map.getCenter());
         });
