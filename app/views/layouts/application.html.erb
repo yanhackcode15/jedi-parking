@@ -3,8 +3,9 @@
 <head>
   <title>JediParking</title>
   <%= stylesheet_link_tag    'application', media: 'all', 'data-turbolinks-track' => true %>
-  <%= javascript_include_tag 'application', 'data-turbolinks-track' => true %>
+  <%= javascript_include_tag 'application', 'data-turbolinks-track' => true, 'defer' => true %>
   <%= csrf_meta_tags %>
+
 </head>
 <body>
 <div class="navbar navbar-inverse navbar-fixed-top">
@@ -17,9 +18,9 @@
          </button>
          <a class="navbar-brand hidden-xs" href="#">PDot</a>
          <a class="navbar-brand visible-xs" href="#">PDot</a>
-         <form class="navbar-form pull-left" role="search">
+         <form id="search" class="navbar-form pull-left" role="search" action="/maps">
             <div class="input-group">
-               <input type="text" class="form-control" placeholder="Search">
+               <input id="address" name="address" type="text" class="form-control" placeholder="Street Address or a Place Name" value="<%= @address %>">
                <div class="input-group-btn">
                   <button type="submit" class="btn btn-default"><span class="glyphicon glyphicon-search"></span></button>
                </div>
