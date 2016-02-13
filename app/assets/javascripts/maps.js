@@ -12,7 +12,7 @@ var myMarker;
 var watchId;
 var destination={};
 var currentPos={};
-
+var currentZoom;
 
 getMeters()
 .catch(console.error.bind(console));
@@ -30,6 +30,8 @@ getCurrentAddress()
 	showDir(map, currentPos, destination);
 })
 .catch(alert);
+
+
 
 function getMeters(){
 	return new Promise(function(resolve, reject){
@@ -111,22 +113,28 @@ function getMeters(){
 
 		currentPos=loadGeo();
 		
-
 		google.maps.event.addListener(map, 'idle', showMeterMarkers);
+		google.maps.event.addListener(map, 'zoom_changed', removeMeterZoomingOut);
 	});
 }
 
 function showMeterMarkers() {
-	var bounds = map.getBounds();
+	//wrap all these inside a zoom condition so this function will only execute if zoom is less than a value
+	//retrieve current zoom
+	currentZoom = map.getZoom();
+	if (currentZoom>=18){
+		var bounds = map.getBounds();
 	// Update meters to show only if they are within the bounds
-	for (var i = 0; i < meters.length; i++) { 
-		var meter = meters[i];
-		if (!bounds.contains(meter.position)){
-			meter.marker.setMap(null);
-		} else if (meter.marker.getMap() !== map) {
-			meter.marker.setMap(map);
-		}
+		for (var i = 0; i < meters.length; i++) { 
+			var meter = meters[i];
+			if (!bounds.contains(meter.position)){
+				meter.marker.setMap(null);
+			} else if (meter.marker.getMap() !== map) {
+				meter.marker.setMap(map);
+			}
+		}	
 	}
+	
 }
 
 
@@ -257,6 +265,33 @@ function getCurrentAddress(map) {
 			handleLocationError(false, infoWindow, map.getCenter());
 		}
 	});
+}
+
+function removeMeterZoomingOut(){
+	//when zoom is less than 18, move meter markers off screen
+	currentZoom = map.getZoom();
+	var meter;
+	if (currentZoom<18){
+		for (var i = 0; i < meters.length; i++){
+			meter = meters[i];
+			if (meter.marker!=null){
+				meter.marker.setMap(null);
+			}
+		}
+	}
+}
+
+function howManyParking(destination) {
+	//cal the number of available parkings within half a mile walking from the destination
+
+}
+
+function walkingDistanceFromMeter(meter) {
+	//calculate given a meter, how far walking distance to the destination
+}
+
+function updateDir(destination) {
+	//when user is close to the desitnation (2 miles away), run algo to determine the meter to route user to.
 }
 
 });
