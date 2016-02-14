@@ -10,24 +10,22 @@ var markers = [];
 var meters = [];
 var myMarker;
 var watchId;
-var destination={};
-var currentPos={};
+var currentPos;
 var currentZoom;
 
 getMeters()
-.catch(console.error.bind(console));
-
-getCurrentAddress()
+.catch(console.error.bind(console))
+.then(getCurrentPosition)
 .then(function(response){
 	currentPos = response;
 	return geocodeSearchAddress(smartParking.searchAddress);
 })
-.then(function(response) {
-	if (response==null){
-		return;
+.then(function(destination) {
+	if (!destination){
+		return Promise.reject();
 	}
-	destination=response; 	
-	showDir(map, currentPos, destination);
+	console.log(countMetersInArea(destination));
+	showDirections(map, currentPos, destination);
 })
 .catch(alert);
 
@@ -35,6 +33,11 @@ getCurrentAddress()
 
 function getMeters(){
 	return new Promise(function(resolve, reject){
+		if (localStorage.meters && localStorage.meters.length) {
+			meters = localStorage.meters;
+			return resolve(meters);
+		}
+
 		$.ajax({
 			'url': "/meters",
 			'dataType': "json"
@@ -52,7 +55,7 @@ function getMeters(){
 				meter_id: data[i].meter_id,
 				event_type: data[i].event_type,
 				event_time: data[i].event_time,
-				position: new google.maps.LatLng(data[i].latitude, data[i].longitude)
+				latlng: new google.maps.LatLng(data[i].latitude, data[i].longitude)
 			};
 			var icon = {
 				path: google.maps.SymbolPath.CIRCLE,
@@ -80,6 +83,7 @@ function getMeters(){
 			})(meter.marker, meter.address));
 			meters.push(meter);
 		}
+		localStorage.meters = meters;
 
 		watchId = navigator.geolocation.watchPosition(
 			function showMyMarker(pos){
@@ -110,8 +114,6 @@ function getMeters(){
 			fillOpacity: 0.8
 		};
 		myMarker = new google.maps.Marker({icon: icon, map: map});
-
-		currentPos=loadGeo();
 		
 		google.maps.event.addListener(map, 'idle', showMeterMarkers);
 		google.maps.event.addListener(map, 'zoom_changed', removeMeterZoomingOut);
@@ -124,10 +126,10 @@ function showMeterMarkers() {
 	currentZoom = map.getZoom();
 	if (currentZoom>=18){
 		var bounds = map.getBounds();
-	// Update meters to show only if they are within the bounds
+		// Update meters to show only if they are within the bounds
 		for (var i = 0; i < meters.length; i++) { 
 			var meter = meters[i];
-			if (!bounds.contains(meter.position)){
+			if (!bounds.contains(meter.latlng)){
 				meter.marker.setMap(null);
 			} else if (meter.marker.getMap() !== map) {
 				meter.marker.setMap(map);
@@ -168,30 +170,7 @@ function initMap() {
 	return map;
 }
 
-function loadGeo(){     
-	var infoWindow = new google.maps.InfoWindow({map: map});
-		// Try HTML5 geolocation.
-	if (navigator.geolocation) {
-		navigator.geolocation.getCurrentPosition(function(position) {
-			var pos = {
-				lat: position.coords.latitude,
-				lng: position.coords.longitude
-			};
-			// debugger;
-			infoWindow.setPosition(pos);
-			infoWindow.setContent('You are here!');
-			return pos;
-			// map.setCenter(pos);
-		}, function() {
-			handleLocationError(true, infoWindow, map.getCenter());
-		});
-	} else {
-		// Browser doesn't support Geolocation
-		handleLocationError(false, infoWindow, map.getCenter());
-	}
-}
-
-function showDir(map, orig, dest){
+function showDirections(map, orig, dest){
 
 	var directionsService = new google.maps.DirectionsService();
 	var directionsDisplay = new google.maps.DirectionsRenderer;
@@ -200,8 +179,6 @@ function showDir(map, orig, dest){
 	calcRoute(orig, dest);
 
 	function calcRoute(orig, dest) {
-		console.log(orig);
-		console.log(dest);
 		var request = {
 			origin:orig,
 			destination:dest,
@@ -227,32 +204,25 @@ function geocodeSearchAddress(address) {
 			}
 
 			var address = results[0].formatted_address;
-			var lat = results[0].geometry.location.lat();
-			var lng = results[0].geometry.location.lng();
-			var location = {lat: lat, lng: lng};
 
 			var numCommas = address.match(/,/g).length;
 			if (numCommas >= 3) {
 				address = address.replace(/, USA$/, '');
-				document.getElementById('address').value = address;
 			}
+			document.getElementById('address').value = address;
 			
-			resolve(location);
+			resolve(results[0].geometry.location);
 		});
 	});
 }
 
-function getCurrentAddress(map) {
+function getCurrentPosition(map) {
 	return new Promise(function (resolve, reject){
 		var infoWindow = new google.maps.InfoWindow({map: map});
 		// Try HTML5 geolocation.
 		if (navigator.geolocation) {
 			navigator.geolocation.getCurrentPosition(function(position) {
-				var pos = {
-					lat: position.coords.latitude,
-					lng: position.coords.longitude
-				};
-				// debugger;
+				var pos = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
 				infoWindow.setPosition(pos);
 				infoWindow.setContent('You are here!');
 				resolve(pos);
@@ -270,6 +240,7 @@ function getCurrentAddress(map) {
 function removeMeterZoomingOut(){
 	//when zoom is less than 18, move meter markers off screen
 	currentZoom = map.getZoom();
+	console.info('Zoom:',currentZoom);
 	var meter;
 	if (currentZoom<18){
 		for (var i = 0; i < meters.length; i++){
@@ -281,17 +252,42 @@ function removeMeterZoomingOut(){
 	}
 }
 
-function howManyParking(destination) {
-	//cal the number of available parkings within half a mile walking from the destination
-
+function countMetersInArea(destination) {
+	//cal the number of available and vacant parkings within half a mile walking from the destination
+	var counts = {'meterCount': 0, 'availMeterCount': 0};
+	var lat2 = destination.lat();
+	var lng2 = destination.lng();
+	for(var i=0; i<meters.length; ++i) {
+		var meter = meters[i]
+		var distance = getDistance(meter.latlng.lat(), meter.latlng.lng(), lat2, lng2);
+		if (distance <= 0.25) {
+			counts.meterCount += 1;
+			if (meter.event_type != 'SS') {
+				counts.availMeterCount += 1;
+			}
+		}
+	}
+	return counts;
 }
 
-function walkingDistanceFromMeter(meter) {
-	//calculate given a meter, how far walking distance to the destination
+function getDistance(lat1, lng1, lat2, lng2) {
+	var R = 3959; // miles
+	var φ1 = lat1 / 360 * Math.PI;
+	var φ2 = lat2 / 360 * Math.PI;
+	var Δφ = (lat2-lat1) / 360 * Math.PI;
+	var Δλ = (lng2-lng1) / 360 * Math.PI;
+
+	var a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+	        Math.cos(φ1) * Math.cos(φ2) *
+	        Math.sin(Δλ/2) * Math.sin(Δλ/2);
+	var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+	var d = R * c;
+	return d;
 }
 
-function updateDir(destination) {
-	//when user is close to the desitnation (2 miles away), run algo to determine the meter to route user to.
+function updateDirections(destination) {
+	//when user is close to the desitnation (0.25 miles away), run algo to determine the meter to route user to.
 }
 
 });
