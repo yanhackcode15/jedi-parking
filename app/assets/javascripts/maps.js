@@ -7,7 +7,7 @@ window.smartParking = window.smartParking || {};
 var infoWindow;
 var map;
 var markers = [];
-var meters = [];
+var meters = {};
 var myMarker;
 var watchId;
 var currentPos;
@@ -43,12 +43,6 @@ initMap()
 function getMeters(){
 	return new Promise(function(resolve, reject){
 		timer('getMeters');
-		// if (localStorage.meters && localStorage.meters.length) {
-		// 	meters = localStorage.meters;
-		// 	timer('getMeters using localStorage');
-		// 	return resolve(meters);
-		// }
-
 		$.ajax({
 			'url': "/meters",
 			'dataType': "json"
@@ -58,7 +52,7 @@ function getMeters(){
 	})
 	.then(function (data) {
 		timer('getMeters callback');
-		meters = [];
+		localStorage.meters = {};
 		for(var i=0; i<data.length; i++){
 			var meter = {
 				address: data[i].address,
@@ -66,27 +60,12 @@ function getMeters(){
 				longitude: data[i].longitude,
 				meter_id: data[i].meter_id,
 				event_type: data[i].event_type,
-				event_time: data[i].event_time,
-				latlng: new google.maps.LatLng(data[i].latitude, data[i].longitude)
+				event_time: data[i].event_time
 			};
-			meters.push(meter);
+			localStorage.meters[meter.meter_id] = meter; // Store the basic meter details
+			meter.latlng = new google.maps.LatLng(meter.latitude, meter.longitude);
+			meters[meter.meter_id] = Object.assign(meters[data[i].meter_id] || {}, meter); // Update our existing meter data with the latest info
 		}
-		localStorage.meters = meters;
-
-		watchId = navigator.geolocation.watchPosition(
-			function showMyMarker(pos){
-				var crd = pos.coords;
-				var position = new google.maps.LatLng(crd.latitude, crd.longitude);
-				myMarker.setPosition(position);
-			}, 
-			function errorShowMyMarker(err){
-				console.warn('ERROR(' + err.code + '): ' + err.message);
-			}, 
-			{
-				enableHighAccuracy: false,
-				timeout: 5000,
-				maximumAge: 0
-		});
 		timer('getMeters callback finished');
 	});
 }
@@ -153,6 +132,13 @@ function handleLocationError(message) {
 function initMap() {
 	return new Promise(function (resolve, reject){
 		timer('initMap');
+
+		if (localStorage.meters && localStorage.meters.length) {
+			meters = localStorage.meters;
+			console.log('Local Storage:', localStorage.meters);
+			timer('initMap using localStorage');
+		}
+
 		var styles = [{"featureType":"landscape.natural","elementType":"geometry.fill","stylers":[{"visibility":"on"},{"color":"#e0efef"}]},{"featureType":"poi","elementType":"geometry.fill","stylers":[{"visibility":"on"},{"hue":"#1900ff"},{"color":"#c0e8e8"}]},{"featureType":"road","elementType":"geometry","stylers":[{"lightness":100},{"visibility":"simplified"}]},{"featureType":"road","elementType":"labels","stylers":[{"visibility":"on"}]},{"featureType":"transit.line","elementType":"geometry","stylers":[{"visibility":"on"},{"lightness":700}]},{"featureType":"water","elementType":"all","stylers":[{"color":"#7dcdcd"}]}];
 		var styledMap = new google.maps.StyledMapType(styles, {name: "Styled Map"});
 		var mapOptions = {
@@ -183,6 +169,23 @@ function initMap() {
 		};
 		myMarker = new google.maps.Marker({icon: myMarkerIcon, map: map});
 		infoWindow = new google.maps.InfoWindow({map: map});
+
+
+		watchId = navigator.geolocation.watchPosition(
+			function showMyMarker(pos){
+				var crd = pos.coords;
+				var position = new google.maps.LatLng(crd.latitude, crd.longitude);
+				myMarker.setPosition(position);
+			}, 
+			function errorShowMyMarker(err){
+				console.warn('ERROR(' + err.code + '): ' + err.message);
+			}, 
+			{
+				enableHighAccuracy: false,
+				timeout: 5000,
+				maximumAge: 0
+		});
+
 		timer('initMap finished');
 		resolve();
 	});
