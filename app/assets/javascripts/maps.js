@@ -35,6 +35,7 @@ initMap()
 		geocodeSearchAddress()
 	]);
 })
+.then(countMetersInArea)
 .then(showRoute)
 .catch(console.error.bind(console));
 
@@ -43,11 +44,10 @@ initMap()
 function getMeters(){
 	return new Promise(function(resolve, reject){
 		timer('getMeters');
-		// if (localStorage.meters && localStorage.meters.length) {
-		// 	meters = localStorage.meters;
-		// 	timer('getMeters using localStorage');
-		// 	return resolve(meters);
-		// }
+		if (localStorage.meters && localStorage.meters.length) {
+			meters = localStorage.meters;
+			timer('getMeters using localStorage');
+		}
 
 		$.ajax({
 			'url': "/meters",
@@ -279,12 +279,12 @@ function removeMeterZoomingOut(){
 	}
 }
 
-function countMetersInArea(destination) {
+function countMetersInArea() {
 	//cal the number of available and vacant parkings within half a mile walking from the destination
 	timer('countMetersInArea');
 	var counts = {'meterCount': 0, 'availMeterCount': 0};
-	var lat2 = destination.lat();
-	var lng2 = destination.lng();
+	var lat2 = destinationPos.lat();
+	var lng2 = destinationPos.lng();
 	for(var i=0; i<meters.length; ++i) {
 		timer('countMetersInArea', i);
 		var meter = meters[i]
@@ -296,6 +296,7 @@ function countMetersInArea(destination) {
 			}
 		}
 	}
+	console.log(counts);
 	return counts;
 }
 
