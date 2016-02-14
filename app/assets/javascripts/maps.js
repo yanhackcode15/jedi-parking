@@ -4,7 +4,7 @@
 window.addEventListener('load', function(){
 
 window.smartParking = window.smartParking || {};
-var infowindow;
+var infoWindow;
 var map;
 var markers = [];
 var meters = [];
@@ -93,18 +93,19 @@ function showMeterMarkers() {
 	timer('showMeterMarkers');
 	currentZoom = map.getZoom();
 	var bounds = map.getBounds();
+	var displayedCount = 0;
 	// Update meters to show only if they are within the bounds
 	for (var i = 0; i < meters.length; i++) { 
 		if (i > 7000) debugger;
-		timer('showMeterMarkers', i, '('+meters.length+')');
 		var meter = meters[i];
 		if (!bounds.contains(meter.latlng) || currentZoom < 18){
 			// Only show meters when zoomed in close enough and are actually within the display area.
 			if (meter.marker) {
 				meter.marker.setMap(null);
 			}
-		} else if (meter.marker.getMap() !== map) {
+		} else {
 			// Set up the meter marker for only meters that will be displayed
+			++displayedCount;
 			if (!meter.marker){
 				var icon = {
 					path: google.maps.SymbolPath.CIRCLE,
@@ -126,15 +127,17 @@ function showMeterMarkers() {
 
 				google.maps.event.addListener(meter.marker, 'click', (function (marker, address) {
 					return function () {
-						infowindow.setContent(address);
-						infowindow.open(map, marker);
+						infoWindow.setContent(address);
+						infoWindow.open(map, marker);
 					}
 				})(meter.marker, meter.address));
 			}
-			meter.marker.setMap(map);
+			if( meter.marker.getMap() !== map){
+				meter.marker.setMap(map);	
+			}
 		}
-	}	
-	timer('showMeterMarkers finished');
+	}
+	timer('showMeterMarkers', 'zoom: '+currentZoom, displayedCount+' ('+meters.length+')');
 }
 
 
@@ -175,7 +178,7 @@ function initMap() {
 			fillOpacity: 0.8
 		};
 		myMarker = new google.maps.Marker({icon: myMarkerIcon, map: map});
-		infowindow = new google.maps.InfoWindow({map: map});
+		infoWindow = new google.maps.InfoWindow({map: map});
 		resolve();
 	});
 }
