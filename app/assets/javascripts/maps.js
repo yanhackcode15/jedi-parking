@@ -12,31 +12,38 @@ var myMarker;
 var watchId;
 var currentPos;
 var currentZoom;
+var destinationMarker;
+var destinationPos;
+var directionsDisplay;
 
-getMeters()
-.catch(console.error.bind(console))
+
+var t = Date.now();
+function timer(){
+	var message = Array.apply(null, arguments);
+	var tx = t;
+	t = Date.now();
+	var Δt = t - tx;
+	message.push('Δt:' + Δt);
+	console.log.apply(console, message);
+}
+
+initMap()
+.then(getMeters)
 .then(getCurrentPosition)
-.then(function(response){
-	currentPos = response;
-	return geocodeSearchAddress(smartParking.searchAddress);
-})
-.then(function(destination) {
-	if (!destination){
-		return Promise.reject();
-	}
-	console.log(countMetersInArea(destination));
-	showDirections(map, currentPos, destination);
-})
-.catch(alert);
+.then(geocodeSearchAddress)
+.then(showRoute)
+.catch(console.error.bind(console));
 
 
 
 function getMeters(){
 	return new Promise(function(resolve, reject){
-		if (localStorage.meters && localStorage.meters.length) {
-			meters = localStorage.meters;
-			return resolve(meters);
-		}
+		timer('getMeters');
+		// if (localStorage.meters && localStorage.meters.length) {
+		// 	meters = localStorage.meters;
+		// 	timer('getMeters using localStorage');
+		// 	return resolve(meters);
+		// }
 
 		$.ajax({
 			'url': "/meters",
@@ -46,8 +53,10 @@ function getMeters(){
 		.fail(reject);
 	})
 	.then(function (data) {
+		timer('getMeters resolved');
 		meters = [];
 		for(var i=0; i<data.length; i++){
+			timer('getMeters resolved', i);
 			var meter = {
 				address: data[i].address,
 				latitude: data[i].latitude,
@@ -57,30 +66,6 @@ function getMeters(){
 				event_time: data[i].event_time,
 				latlng: new google.maps.LatLng(data[i].latitude, data[i].longitude)
 			};
-			var icon = {
-				path: google.maps.SymbolPath.CIRCLE,
-				scale: 5,
-				fillColor: 'red',
-				strokeColor: 'red',
-				strokeWeight: 1,
-				fillOpacity: 0.8
-			};
-			if (meter.event_type !== 'SS') {
-				//if not taken or unknown, make it green
-				icon.fillColor = 'green';
-				icon.strokeColor = 'green';
-			}
-			meter.marker = new google.maps.Marker({
-				position: meter.position,
-				icon: icon
-			});
-
-			google.maps.event.addListener(meter.marker, 'click', (function(marker, address) {
-				return function() {
-					infowindow.setContent(address);
-					infowindow.open(map, marker);
-				}
-			})(meter.marker, meter.address));
 			meters.push(meter);
 		}
 		localStorage.meters = meters;
@@ -99,13 +84,89 @@ function getMeters(){
 				timeout: 5000,
 				maximumAge: 0
 		});
-		
-		infowindow = new google.maps.InfoWindow();
-		
-		map = initMap();
-		
+	});
+}
 
-		var icon = {
+function showMeterMarkers() {
+	//wrap all these inside a zoom condition so this function will only execute if zoom is less than a value
+	//retrieve current zoom
+	timer('showMeterMarkers');
+	currentZoom = map.getZoom();
+	var bounds = map.getBounds();
+	// Update meters to show only if they are within the bounds
+	for (var i = 0; i < meters.length; i++) { 
+		if (i > 7000) debugger;
+		timer('showMeterMarkers', i, '('+meters.length+')');
+		var meter = meters[i];
+		if (!bounds.contains(meter.latlng) || currentZoom < 18){
+			// Only show meters when zoomed in close enough and are actually within the display area.
+			if (meter.marker) {
+				meter.marker.setMap(null);
+			}
+		} else if (meter.marker.getMap() !== map) {
+			// Set up the meter marker for only meters that will be displayed
+			if (!meter.marker){
+				var icon = {
+					path: google.maps.SymbolPath.CIRCLE,
+					scale: 5,
+					fillColor: 'red',
+					strokeColor: 'red',
+					strokeWeight: 1,
+					fillOpacity: 0.8
+				};
+				if (meter.event_type !== 'SS') {
+					//if not taken or unknown, make it green
+					icon.fillColor = 'green';
+					icon.strokeColor = 'green';
+				}
+				meter.marker = new google.maps.Marker({
+					position: meter.latlng,
+					icon: icon
+				});
+
+				google.maps.event.addListener(meter.marker, 'click', (function (marker, address) {
+					return function () {
+						infowindow.setContent(address);
+						infowindow.open(map, marker);
+					}
+				})(meter.marker, meter.address));
+			}
+			meter.marker.setMap(map);
+		}
+	}	
+	timer('showMeterMarkers finished');
+}
+
+
+function handleLocationError(message) {
+	infoWindow.setPosition(pos);
+	infoWindow.setContent(message);
+}
+
+function initMap() {
+	return new Promise(function (resolve, reject){
+		timer('initMap');
+		var styles = [{"featureType":"landscape.natural","elementType":"geometry.fill","stylers":[{"visibility":"on"},{"color":"#e0efef"}]},{"featureType":"poi","elementType":"geometry.fill","stylers":[{"visibility":"on"},{"hue":"#1900ff"},{"color":"#c0e8e8"}]},{"featureType":"road","elementType":"geometry","stylers":[{"lightness":100},{"visibility":"simplified"}]},{"featureType":"road","elementType":"labels","stylers":[{"visibility":"on"}]},{"featureType":"transit.line","elementType":"geometry","stylers":[{"visibility":"on"},{"lightness":700}]},{"featureType":"water","elementType":"all","stylers":[{"color":"#7dcdcd"}]}];
+		var styledMap = new google.maps.StyledMapType(styles, {name: "Styled Map"});
+		var mapOptions = {
+			zoom: 18,
+			minZoom: 10,
+			scaleControl: true,
+			center: new google.maps.LatLng(34.024212, -118.496475),
+			mapTypeControlOptions: {
+				mapTypeIds: [google.maps.MapTypeId.ROADMAP, 'map_style']
+			}
+		};
+		
+		var mapDiv = document.createElement('div');
+		mapDiv.setAttribute('id', 'map');
+		map = new google.maps.Map(mapDiv, mapOptions);
+		map.mapTypes.set('map_style', styledMap);
+		map.setMapTypeId('map_style');
+		document.getElementById('mapContainer').appendChild(mapDiv);
+		google.maps.event.addListener(map, 'idle', showMeterMarkers);
+
+		var myMarkerIcon = {
 			path: google.maps.SymbolPath.CIRCLE,
 			scale: 5,
 			fillColor: 'orange',
@@ -113,92 +174,46 @@ function getMeters(){
 			strokeWeight: 2,
 			fillOpacity: 0.8
 		};
-		myMarker = new google.maps.Marker({icon: icon, map: map});
-		
-		google.maps.event.addListener(map, 'idle', showMeterMarkers);
-		google.maps.event.addListener(map, 'zoom_changed', removeMeterZoomingOut);
+		myMarker = new google.maps.Marker({icon: myMarkerIcon, map: map});
+		infowindow = new google.maps.InfoWindow({map: map});
+		resolve();
 	});
 }
 
-function showMeterMarkers() {
-	//wrap all these inside a zoom condition so this function will only execute if zoom is less than a value
-	//retrieve current zoom
-	currentZoom = map.getZoom();
-	if (currentZoom>=18){
-		var bounds = map.getBounds();
-		// Update meters to show only if they are within the bounds
-		for (var i = 0; i < meters.length; i++) { 
-			var meter = meters[i];
-			if (!bounds.contains(meter.latlng)){
-				meter.marker.setMap(null);
-			} else if (meter.marker.getMap() !== map) {
-				meter.marker.setMap(map);
-			}
-		}	
-	}
-	
-}
 
-
-function handleLocationError(browserHasGeolocation, infoWindow, pos) {
-	infoWindow.setPosition(pos);
-	infoWindow.setContent(browserHasGeolocation ?
-		'Error: The Geolocation service failed.' :
-		'Error: Your browser doesn\'t support geolocation.');
-}
-
-function initMap() {
-	var styles = [{"featureType":"landscape.natural","elementType":"geometry.fill","stylers":[{"visibility":"on"},{"color":"#e0efef"}]},{"featureType":"poi","elementType":"geometry.fill","stylers":[{"visibility":"on"},{"hue":"#1900ff"},{"color":"#c0e8e8"}]},{"featureType":"road","elementType":"geometry","stylers":[{"lightness":100},{"visibility":"simplified"}]},{"featureType":"road","elementType":"labels","stylers":[{"visibility":"on"}]},{"featureType":"transit.line","elementType":"geometry","stylers":[{"visibility":"on"},{"lightness":700}]},{"featureType":"water","elementType":"all","stylers":[{"color":"#7dcdcd"}]}];
-	var styledMap = new google.maps.StyledMapType(styles, {name: "Styled Map"});
-	var mapOptions = {
-		zoom: 18,
-		minZoom: 10,
-		scaleControl: true,
-		center: new google.maps.LatLng(34.024212, -118.496475),
-		mapTypeControlOptions: {
-			mapTypeIds: [google.maps.MapTypeId.ROADMAP, 'map_style']
+function showRoute(){
+	return new Promise(function (resolve, reject) {
+		timer('showRoute');
+		if (!currentPos || !destinationPos) {
+			resolve();
 		}
-	};
-	
-	var mapDiv = document.createElement('div');
-	mapDiv.setAttribute('id', 'map');
-	var map = new google.maps.Map(mapDiv, mapOptions);
-	map.mapTypes.set('map_style', styledMap);
-	map.setMapTypeId('map_style');
-
-	document.getElementById('mapContainer').appendChild(mapDiv);
-	return map;
-}
-
-function showDirections(map, orig, dest){
-
-	var directionsService = new google.maps.DirectionsService();
-	var directionsDisplay = new google.maps.DirectionsRenderer;
-	directionsDisplay.setMap(map);
-	
-	calcRoute(orig, dest);
-
-	function calcRoute(orig, dest) {
+		var directionsService = new google.maps.DirectionsService();
 		var request = {
-			origin:orig,
-			destination:dest,
+			origin: currentPos,
+			destination: destinationPos,
 			travelMode: google.maps.TravelMode.DRIVING
 		};
-		directionsService.route(request, function(result, status) {
+		directionsService.route(request, function(directions, status) {
+			timer('showRoute callback');
 			if (status == google.maps.DirectionsStatus.OK) {
-				directionsDisplay.setDirections(result);
+				directionsDisplay = new google.maps.DirectionsRenderer({map: map, directions: directions});
 			}
+			resolve();
 		});
-	}
+	});
 }
 
-function geocodeSearchAddress(address) {
+function geocodeSearchAddress() {
 	return new Promise(function (resolve, reject) {
-		if (""+address==""){
+		timer('geocodeSearchAddress');
+
+		var address = smartParking.searchAddress;
+		if (''+address == ''){
 			return resolve();
 		}
 		var geocoder = new google.maps.Geocoder();
 		geocoder.geocode({ address: address }, function (results, status) {
+			timer('geocodeSearchAddress callback');
 			if (status !== google.maps.GeocoderStatus.OK) {
 				return reject('The address is either invalid or is not specific enough.');
 			}
@@ -210,35 +225,35 @@ function geocodeSearchAddress(address) {
 				address = address.replace(/, USA$/, '');
 			}
 			document.getElementById('address').value = address;
-			
-			resolve(results[0].geometry.location);
+			destinationPos = results[0].geometry.location
+			resolve();
 		});
 	});
 }
 
-function getCurrentPosition(map) {
+function getCurrentPosition() {
 	return new Promise(function (resolve, reject){
-		var infoWindow = new google.maps.InfoWindow({map: map});
-		// Try HTML5 geolocation.
+		timer('getCurrentPosition');
 		if (navigator.geolocation) {
 			navigator.geolocation.getCurrentPosition(function(position) {
-				var pos = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
-				infoWindow.setPosition(pos);
+				currentPos = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+				infoWindow.setPosition(currentPos);
 				infoWindow.setContent('You are here!');
-				resolve(pos);
+				resolve();
 				// map.setCenter(pos);
 			}, function() {
-				handleLocationError(true, infoWindow, map.getCenter());
+				handleLocationError('Error: Your browser doesn\'t support geolocation.');
 			});
 		} else {
 			// Browser doesn't support Geolocation
-			handleLocationError(false, infoWindow, map.getCenter());
+			handleLocationError('Error: The Geolocation service failed.');
 		}
 	});
 }
 
 function removeMeterZoomingOut(){
 	//when zoom is less than 18, move meter markers off screen
+	timer('removeMeterZoomingOut');
 	currentZoom = map.getZoom();
 	console.info('Zoom:',currentZoom);
 	var meter;
@@ -254,10 +269,12 @@ function removeMeterZoomingOut(){
 
 function countMetersInArea(destination) {
 	//cal the number of available and vacant parkings within half a mile walking from the destination
+	timer('countMetersInArea');
 	var counts = {'meterCount': 0, 'availMeterCount': 0};
 	var lat2 = destination.lat();
 	var lng2 = destination.lng();
 	for(var i=0; i<meters.length; ++i) {
+		timer('countMetersInArea', i);
 		var meter = meters[i]
 		var distance = getDistance(meter.latlng.lat(), meter.latlng.lng(), lat2, lng2);
 		if (distance <= 0.25) {
