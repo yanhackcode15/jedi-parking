@@ -28,9 +28,13 @@ function timer(){
 }
 
 initMap()
-.then(getMeters)
-.then(getCurrentPosition)
-.then(geocodeSearchAddress)
+.then(function(){
+	getMeters();
+	return Promise.all([
+		getCurrentPosition(),
+		geocodeSearchAddress()
+	]);
+})
 .then(showRoute)
 .catch(console.error.bind(console));
 
@@ -49,14 +53,13 @@ function getMeters(){
 			'url': "/meters",
 			'dataType': "json"
 		})
-		.done(resolve)
+		.complete(resolve)
 		.fail(reject);
 	})
 	.then(function (data) {
-		timer('getMeters resolved');
+		timer('getMeters callback');
 		meters = [];
 		for(var i=0; i<data.length; i++){
-			timer('getMeters resolved', i);
 			var meter = {
 				address: data[i].address,
 				latitude: data[i].latitude,
@@ -84,6 +87,7 @@ function getMeters(){
 				timeout: 5000,
 				maximumAge: 0
 		});
+		timer('getMeters callback finished');
 	});
 }
 
@@ -137,7 +141,7 @@ function showMeterMarkers() {
 			}
 		}
 	}
-	timer('showMeterMarkers', 'zoom: '+currentZoom, displayedCount+' ('+meters.length+')');
+	timer('showMeterMarkers', 'zoom: '+currentZoom, 'showing ' + displayedCount+' (of '+meters.length+' total meters)');
 }
 
 
@@ -179,6 +183,7 @@ function initMap() {
 		};
 		myMarker = new google.maps.Marker({icon: myMarkerIcon, map: map});
 		infoWindow = new google.maps.InfoWindow({map: map});
+		timer('initMap finished');
 		resolve();
 	});
 }
@@ -201,6 +206,7 @@ function showRoute(){
 			if (status == google.maps.DirectionsStatus.OK) {
 				directionsDisplay = new google.maps.DirectionsRenderer({map: map, directions: directions});
 			}
+			timer('showRoute callback finished');
 			resolve();
 		});
 	});
@@ -229,6 +235,7 @@ function geocodeSearchAddress() {
 			}
 			document.getElementById('address').value = address;
 			destinationPos = results[0].geometry.location
+			timer('geocodeSearchAddress callback finished');
 			resolve();
 		});
 	});
@@ -239,9 +246,11 @@ function getCurrentPosition() {
 		timer('getCurrentPosition');
 		if (navigator.geolocation) {
 			navigator.geolocation.getCurrentPosition(function(position) {
+				timer('getCurrentPosition callback');
 				currentPos = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
 				infoWindow.setPosition(currentPos);
 				infoWindow.setContent('You are here!');
+				timer('getCurrentPosition callback finished');
 				resolve();
 				// map.setCenter(pos);
 			}, function() {
