@@ -301,23 +301,18 @@ function countMetersInArea() {
 			}
 		}
 	}
-	var countDisplay = "We found "+counts.availMeterCount+" available meters near the area!"
-	// var alertText = document.createTextNode(countDisplay);
-	// var countAlertButton = document.createElement('button');
-	var countAlertDiv = document.createElement('div');
-	var alert='<div type="div" class="alert alert-success alert-dismissible" role="alert" id="countAlertDiv" aria-label="Close"><button type="button" class="close" data-dismiss="alert" id="countAlertButton" aria-label="Close"><span aria-hidden="true">×</span></button>'+countDisplay+'</div>';
 
-	// document.getElementById('mapContainer').appendChild(countAlertDiv);
-	// document.getElementById('mapContainer').innerHTML=alert;
-	countAlertDiv.innerHTML = alert;
-	document.getElementById('mapContainer').appendChild(countAlertDiv.firstChild);
-
-	// console.log(counts);
+	displayMeterAlert(counts);
 	return counts;
 }
 
-function displayMeterAlert(){
+function displayMeterAlert(counts){
+	var countDisplay = "We found "+counts.availMeterCount+" available meters near the area!"
+	var countAlertDiv = document.createElement('div');
+	var alert='<div type="div" class="alert alert-success alert-dismissible" role="alert" id="countAlertDiv" aria-label="Close"><button type="button" class="close" data-dismiss="alert" id="countAlertButton" aria-label="Close"><span aria-hidden="true">×</span></button>'+countDisplay+'</div>';
 
+	countAlertDiv.innerHTML = alert;
+	document.getElementById('mapContainer').appendChild(countAlertDiv.firstChild);
 
 }
 
