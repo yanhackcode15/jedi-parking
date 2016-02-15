@@ -76,11 +76,13 @@ function getMeters(){
 		localStorage.meters = meters;
 
 		watchId = navigator.geolocation.watchPosition(
-			function showMyMarker(pos){
+			function(pos){
 				var crd = pos.coords;
 				var position = new google.maps.LatLng(crd.latitude, crd.longitude);
 				myMarker.setPosition(position);
-			}, 
+				resetView();
+			},
+			 
 			function errorShowMyMarker(err){
 				console.warn('ERROR(' + err.code + '): ' + err.message);
 			}, 
@@ -333,8 +335,16 @@ function getDistance(lat1, lng1, lat2, lng2) {
 	return d;
 }
 
-function updateDirections(destination) {
-	//when user is close to the desitnation (0.25 miles away), run algo to determine the meter to route user to.
+function resetView() {
+	//when user is close to the desitnation (0.25 miles away), reset zoom and recenter the map around the destination at a very close zoom
+	//first listen and determine when the treshold is hit. 
+	//run the distance calc 
+	var distance = getDistance(currentPos.lat(), currentPos.lng(), destinationPos.lat(), destinationPos.lng());
+
+	if (distance<=0.15){
+		//set zoom to x
+		map.setZoom(18);
+	}
 }
 
 });
