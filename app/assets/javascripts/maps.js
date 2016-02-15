@@ -29,8 +29,9 @@ function timer(){
 
 initMap()
 .then(function(){
-	getMeters();
+	// getMeters();
 	return Promise.all([
+		getMeters(),
 		getCurrentPosition(),
 		geocodeSearchAddress()
 	]);
@@ -43,11 +44,12 @@ initMap()
 
 function getMeters(){
 	return new Promise(function(resolve, reject){
+	// var meterPromise = new Promise(function(resolve, reject){
 		timer('getMeters');
-		if (localStorage.meters && localStorage.meters.length) {
-			meters = localStorage.meters;
-			timer('getMeters using localStorage');
-		}
+		// if (localStorage.meters && localStorage.meters.length) {
+		// 	meters = localStorage.meters;
+		// 	timer('getMeters using localStorage');
+		// }
 
 		$.ajax({
 			'url': "/meters",
@@ -89,6 +91,8 @@ function getMeters(){
 		});
 		timer('getMeters callback finished');
 	});
+
+
 }
 
 function showMeterMarkers() {
@@ -283,21 +287,38 @@ function countMetersInArea() {
 	//cal the number of available and vacant parkings within half a mile walking from the destination
 	timer('countMetersInArea');
 	var counts = {'meterCount': 0, 'availMeterCount': 0};
+	// debugger;
 	var lat2 = destinationPos.lat();
 	var lng2 = destinationPos.lng();
 	for(var i=0; i<meters.length; ++i) {
 		timer('countMetersInArea', i);
 		var meter = meters[i]
 		var distance = getDistance(meter.latlng.lat(), meter.latlng.lng(), lat2, lng2);
-		if (distance <= 0.25) {
+		if (distance <= 0.1) {
 			counts.meterCount += 1;
 			if (meter.event_type != 'SS') {
 				counts.availMeterCount += 1;
 			}
 		}
 	}
-	console.log(counts);
+	var countDisplay = "We found "+counts.availMeterCount+" available meters near the area!"
+	// var alertText = document.createTextNode(countDisplay);
+	// var countAlertButton = document.createElement('button');
+	var countAlertDiv = document.createElement('div');
+	var alert='<div type="div" class="alert alert-success alert-dismissible" role="alert" id="countAlertDiv" aria-label="Close"><button type="button" class="close" data-dismiss="alert" id="countAlertButton" aria-label="Close"><span aria-hidden="true">×</span></button>'+countDisplay+'</div>';
+
+	// document.getElementById('mapContainer').appendChild(countAlertDiv);
+	// document.getElementById('mapContainer').innerHTML=alert;
+	countAlertDiv.innerHTML = alert;
+	document.getElementById('mapContainer').appendChild(countAlertDiv.firstChild);
+
+	// console.log(counts);
 	return counts;
+}
+
+function displayMeterAlert(){
+
+
 }
 
 function getDistance(lat1, lng1, lat2, lng2) {
