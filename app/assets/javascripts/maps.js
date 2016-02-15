@@ -301,18 +301,19 @@ function countMetersInArea() {
 			}
 		}
 	}
+	var countDisplay = "We found "+counts.availMeterCount+" available meters near the area!";
 
-	displayMeterAlert(counts);
+	displayAlert(countDisplay);
 	return counts;
 }
 
-function displayMeterAlert(counts){
-	var countDisplay = "We found "+counts.availMeterCount+" available meters near the area!"
-	var countAlertDiv = document.createElement('div');
-	var alert='<div type="div" class="alert alert-success alert-dismissible" role="alert" id="countAlertDiv" aria-label="Close"><button type="button" class="close" data-dismiss="alert" id="countAlertButton" aria-label="Close"><span aria-hidden="true">×</span></button>'+countDisplay+'</div>';
+function displayAlert(display){
+	
+	var alertDiv = document.createElement('div');
+	var alert='<div type="div" class="alert alert-success alert-dismissible" role="alert" id="countAlertDiv" aria-label="Close"><button type="button" class="close" data-dismiss="alert" id="countAlertButton" aria-label="Close"><span aria-hidden="true">×</span></button>'+display+'</div>';
 
-	countAlertDiv.innerHTML = alert;
-	document.getElementById('mapContainer').appendChild(countAlertDiv.firstChild);
+	alertDiv.innerHTML = alert;
+	document.getElementById('mapContainer').appendChild(alertDiv.firstChild);
 
 }
 
