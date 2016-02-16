@@ -6,7 +6,6 @@ window.addEventListener('load', function(){
 window.smartParking = window.smartParking || {};
 var infoWindow;
 var map;
-var markers = [];
 var meters = {};
 var myMarker;
 var watchId;
@@ -18,7 +17,7 @@ var directionsDisplay;
 
 
 var t = Date.now();
-function timer(){
+function debugTimer(){
 	var message = Array.apply(null, arguments);
 	var tx = t;
 	t = Date.now();
@@ -42,7 +41,7 @@ initMap()
 
 function getMeters(){
 	return new Promise(function(resolve, reject){
-		timer('getMeters');
+		debugTimer('getMeters');
 		$.ajax({
 			'url': "/meters",
 			'dataType': "json"
@@ -51,8 +50,8 @@ function getMeters(){
 		.fail(reject);
 	})
 	.then(function (data) {
-		timer('getMeters callback');
-		localStorage.meters = {};
+		debugTimer('getMeters callback');
+		var storage = {};
 		for(var i=0; i<data.length; i++){
 			var meter = {
 				address: data[i].address,
@@ -62,18 +61,20 @@ function getMeters(){
 				event_type: data[i].event_type,
 				event_time: data[i].event_time
 			};
-			localStorage.meters[meter.meter_id] = meter; // Store the basic meter details
-			meter.latlng = new google.maps.LatLng(meter.latitude, meter.longitude);
+			storage[meter.meter_id] = meter; // Store the basic meter details
 			meters[meter.meter_id] = Object.assign(meters[data[i].meter_id] || {}, meter); // Update our existing meter data with the latest info
+			meters[meter.meter_id].latlng = new google.maps.LatLng(meter.latitude, meter.longitude);
 		}
-		timer('getMeters callback finished');
+		localStorage.meters = JSON.stringify(storage);
+		debugger;
+		debugTimer('getMeters callback finished');
 	});
 }
 
 function showMeterMarkers() {
 	//wrap all these inside a zoom condition so this function will only execute if zoom is less than a value
 	//retrieve current zoom
-	timer('showMeterMarkers');
+	debugTimer('showMeterMarkers');
 	currentZoom = map.getZoom();
 	var bounds = map.getBounds();
 	var displayedCount = 0;
@@ -120,7 +121,7 @@ function showMeterMarkers() {
 			}
 		}
 	}
-	timer('showMeterMarkers', 'zoom: '+currentZoom, 'showing ' + displayedCount+' (of '+meters.length+' total meters)');
+	debugTimer('showMeterMarkers', 'zoom: '+currentZoom, 'showing ' + displayedCount+' (of '+meters.length+' total meters)');
 }
 
 
@@ -131,12 +132,18 @@ function handleLocationError(message) {
 
 function initMap() {
 	return new Promise(function (resolve, reject){
-		timer('initMap');
+		debugTimer('initMap');
 
-		if (localStorage.meters && localStorage.meters.length) {
-			meters = localStorage.meters;
+		if (localStorage.meters) {
+			try {
+				meters = JSON.parse(localStorage.meters);
+			} catch (err) {
+				//Failed to parse local storage meters, so we use a blank object.
+				localStorage.meters = '{}';
+				meters = {};
+			}
 			console.log('Local Storage:', localStorage.meters);
-			timer('initMap using localStorage');
+			debugTimer('initMap using localStorage');
 		}
 
 		var styles = [{"featureType":"landscape.natural","elementType":"geometry.fill","stylers":[{"visibility":"on"},{"color":"#e0efef"}]},{"featureType":"poi","elementType":"geometry.fill","stylers":[{"visibility":"on"},{"hue":"#1900ff"},{"color":"#c0e8e8"}]},{"featureType":"road","elementType":"geometry","stylers":[{"lightness":100},{"visibility":"simplified"}]},{"featureType":"road","elementType":"labels","stylers":[{"visibility":"on"}]},{"featureType":"transit.line","elementType":"geometry","stylers":[{"visibility":"on"},{"lightness":700}]},{"featureType":"water","elementType":"all","stylers":[{"color":"#7dcdcd"}]}];
@@ -186,7 +193,7 @@ function initMap() {
 				maximumAge: 0
 		});
 
-		timer('initMap finished');
+		debugTimer('initMap finished');
 		resolve();
 	});
 }
@@ -194,7 +201,7 @@ function initMap() {
 
 function showRoute(){
 	return new Promise(function (resolve, reject) {
-		timer('showRoute');
+		debugTimer('showRoute');
 		if (!currentPos || !destinationPos) {
 			resolve();
 		}
@@ -205,11 +212,11 @@ function showRoute(){
 			travelMode: google.maps.TravelMode.DRIVING
 		};
 		directionsService.route(request, function(directions, status) {
-			timer('showRoute callback');
+			debugTimer('showRoute callback');
 			if (status == google.maps.DirectionsStatus.OK) {
 				directionsDisplay = new google.maps.DirectionsRenderer({map: map, directions: directions});
 			}
-			timer('showRoute callback finished');
+			debugTimer('showRoute callback finished');
 			resolve();
 		});
 	});
@@ -217,7 +224,7 @@ function showRoute(){
 
 function geocodeSearchAddress() {
 	return new Promise(function (resolve, reject) {
-		timer('geocodeSearchAddress');
+		debugTimer('geocodeSearchAddress');
 
 		var address = smartParking.searchAddress;
 		if (''+address == ''){
@@ -225,7 +232,7 @@ function geocodeSearchAddress() {
 		}
 		var geocoder = new google.maps.Geocoder();
 		geocoder.geocode({ address: address }, function (results, status) {
-			timer('geocodeSearchAddress callback');
+			debugTimer('geocodeSearchAddress callback');
 			if (status !== google.maps.GeocoderStatus.OK) {
 				return reject('The address is either invalid or is not specific enough.');
 			}
@@ -238,7 +245,7 @@ function geocodeSearchAddress() {
 			}
 			document.getElementById('address').value = address;
 			destinationPos = results[0].geometry.location
-			timer('geocodeSearchAddress callback finished');
+			debugTimer('geocodeSearchAddress callback finished');
 			resolve();
 		});
 	});
@@ -246,14 +253,14 @@ function geocodeSearchAddress() {
 
 function getCurrentPosition() {
 	return new Promise(function (resolve, reject){
-		timer('getCurrentPosition');
+		debugTimer('getCurrentPosition');
 		if (navigator.geolocation) {
 			navigator.geolocation.getCurrentPosition(function(position) {
-				timer('getCurrentPosition callback');
+				debugTimer('getCurrentPosition callback');
 				currentPos = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
 				infoWindow.setPosition(currentPos);
 				infoWindow.setContent('You are here!');
-				timer('getCurrentPosition callback finished');
+				debugTimer('getCurrentPosition callback finished');
 				resolve();
 				// map.setCenter(pos);
 			}, function() {
@@ -268,7 +275,7 @@ function getCurrentPosition() {
 
 function removeMeterZoomingOut(){
 	//when zoom is less than 18, move meter markers off screen
-	timer('removeMeterZoomingOut');
+	debugTimer('removeMeterZoomingOut');
 	currentZoom = map.getZoom();
 	console.info('Zoom:',currentZoom);
 	var meter;
@@ -284,12 +291,12 @@ function removeMeterZoomingOut(){
 
 function countMetersInArea(destination) {
 	//cal the number of available and vacant parkings within half a mile walking from the destination
-	timer('countMetersInArea');
+	debugTimer('countMetersInArea');
 	var counts = {'meterCount': 0, 'availMeterCount': 0};
 	var lat2 = destination.lat();
 	var lng2 = destination.lng();
 	for(var i=0; i<meters.length; ++i) {
-		timer('countMetersInArea', i);
+		debugTimer('countMetersInArea', i);
 		var meter = meters[i]
 		var distance = getDistance(meter.latlng.lat(), meter.latlng.lng(), lat2, lng2);
 		if (distance <= 0.25) {
