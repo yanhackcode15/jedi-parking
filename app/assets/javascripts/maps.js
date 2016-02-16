@@ -6,7 +6,7 @@ window.addEventListener('load', function(){
 window.smartParking = window.smartParking || {};
 var infoWindow;
 var map;
-var meters = {};
+var meters = new Map();
 var myMarker;
 var watchId;
 var currentPos;
@@ -28,12 +28,14 @@ function debugTimer(){
 
 initMap()
 .then(function(){
-	getMeters();
+	// getMeters();
 	return Promise.all([
+		getMeters(),
 		getCurrentPosition(),
 		geocodeSearchAddress()
 	]);
 })
+.then(countMetersInArea)
 .then(showRoute)
 .catch(console.error.bind(console));
 
@@ -51,24 +53,29 @@ function getMeters(){
 	})
 	.then(function (data) {
 		debugTimer('getMeters callback');
-		var storage = {};
-		for(var i=0; i<data.length; i++){
-			var meter = {
-				address: data[i].address,
-				latitude: data[i].latitude,
-				longitude: data[i].longitude,
-				meter_id: data[i].meter_id,
-				event_type: data[i].event_type,
-				event_time: data[i].event_time
-			};
-			storage[meter.meter_id] = meter; // Store the basic meter details
-			meters[meter.meter_id] = Object.assign(meters[data[i].meter_id] || {}, meter); // Update our existing meter data with the latest info
-			meters[meter.meter_id].latlng = new google.maps.LatLng(meter.latitude, meter.longitude);
-		}
+
+		// Merge the new meter data with our existing meters
+		data.forEach(function (meterData) {
+			var meter = meters.get(meterData.meter_id) || {};
+			meter = Object.assign({}, meter, meterData);
+			meter.latlng = new google.maps.LatLng(meter.latitude, meter.longitude);
+			meters.set(meterData.meter_id, meter);
+		});
+
+		// Keep a local copy of the basic meter data we have accumulated
+		var storage = [];
+		meters.forEach(function (meter, meter_id) {
+			// we use a CSV format to reduce the data size since local storage is limited
+			storage.push(meter_id);
+			storage.push(meter.address);
+			storage.push(meter.latitude);
+			storage.push(meter.longitude);
+		});
 		localStorage.meters = JSON.stringify(storage);
-		debugger;
 		debugTimer('getMeters callback finished');
 	});
+
+
 }
 
 function showMeterMarkers() {
@@ -78,19 +85,24 @@ function showMeterMarkers() {
 	currentZoom = map.getZoom();
 	var bounds = map.getBounds();
 	var displayedCount = 0;
-	// Update meters to show only if they are within the bounds
-	for (var i = 0; i < meters.length; i++) { 
-		if (i > 7000) debugger;
-		var meter = meters[i];
+	// Update meters to show only if they are within the bounds)
+	meters.forEach(function (meter, meter_id) {
+		if (!meter.latlng) {
+			// somehow we have a bad meter?
+			console.info('Bad Meter:', meter_id, meter);
+			meters.delete(meter_id);
+			return;
+		}
+		
 		if (!bounds.contains(meter.latlng) || currentZoom < 18){
-			// Only show meters when zoomed in close enough and are actually within the display area.
 			if (meter.marker) {
+				// Remove meter from the map
 				meter.marker.setMap(null);
 			}
 		} else {
-			// Set up the meter marker for only meters that will be displayed
 			++displayedCount;
-			if (!meter.marker){
+			if (!meter.marker) {
+				// Set up the meter's marker
 				var icon = {
 					path: google.maps.SymbolPath.CIRCLE,
 					scale: 5,
@@ -117,11 +129,12 @@ function showMeterMarkers() {
 				})(meter.marker, meter.address));
 			}
 			if( meter.marker.getMap() !== map){
+				// Display the meter on the map if it isn't already shown
 				meter.marker.setMap(map);	
 			}
 		}
-	}
-	debugTimer('showMeterMarkers', 'zoom: '+currentZoom, 'showing ' + displayedCount+' (of '+meters.length+' total meters)');
+	});
+	debugTimer('showMeterMarkers', 'zoom: '+currentZoom, 'showing ' + displayedCount+' (of '+ meters.size +' total meters)');
 }
 
 
@@ -134,17 +147,24 @@ function initMap() {
 	return new Promise(function (resolve, reject){
 		debugTimer('initMap');
 
-		if (localStorage.meters) {
-			try {
-				meters = JSON.parse(localStorage.meters);
-			} catch (err) {
-				//Failed to parse local storage meters, so we use a blank object.
-				localStorage.meters = '{}';
-				meters = {};
+		try {
+			var storage = JSON.parse(localStorage.meters);
+			while (storage.length){
+				var meter = {
+					meter_id: ''+storage.shift(),
+					address: ''+storage.shift(),
+					latitude: +storage.shift(),
+					longitude: +storage.shift()
+				};
+				meter.latlng = new google.maps.LatLng(meter.latitude, meter.longitude);
+				meters.set(meter.meter_id, meter);
 			}
-			console.log('Local Storage:', localStorage.meters);
-			debugTimer('initMap using localStorage');
-		}
+		} catch (ignoredErr) {
+			//Failed to parse local storage meters, so we use a blank object.
+			localStorage.meters = '[]';
+			meters = new Map();
+		};
+		debugTimer('initMap got meters from local storage', meters.size);
 
 		var styles = [{"featureType":"landscape.natural","elementType":"geometry.fill","stylers":[{"visibility":"on"},{"color":"#e0efef"}]},{"featureType":"poi","elementType":"geometry.fill","stylers":[{"visibility":"on"},{"hue":"#1900ff"},{"color":"#c0e8e8"}]},{"featureType":"road","elementType":"geometry","stylers":[{"lightness":100},{"visibility":"simplified"}]},{"featureType":"road","elementType":"labels","stylers":[{"visibility":"on"}]},{"featureType":"transit.line","elementType":"geometry","stylers":[{"visibility":"on"},{"lightness":700}]},{"featureType":"water","elementType":"all","stylers":[{"color":"#7dcdcd"}]}];
 		var styledMap = new google.maps.StyledMapType(styles, {name: "Styled Map"});
@@ -203,7 +223,7 @@ function showRoute(){
 	return new Promise(function (resolve, reject) {
 		debugTimer('showRoute');
 		if (!currentPos || !destinationPos) {
-			resolve();
+			return resolve();
 		}
 		var directionsService = new google.maps.DirectionsService();
 		var request = {
@@ -279,34 +299,46 @@ function removeMeterZoomingOut(){
 	currentZoom = map.getZoom();
 	console.info('Zoom:',currentZoom);
 	var meter;
-	if (currentZoom<18){
-		for (var i = 0; i < meters.length; i++){
-			meter = meters[i];
-			if (meter.marker!=null){
+	if (currentZoom < 18){ 
+		meters.forEach(function (meter, meter_id){
+			if (meter.marker){
 				meter.marker.setMap(null);
 			}
-		}
+		});
 	}
 }
 
-function countMetersInArea(destination) {
+function countMetersInArea() {
 	//cal the number of available and vacant parkings within half a mile walking from the destination
 	debugTimer('countMetersInArea');
 	var counts = {'meterCount': 0, 'availMeterCount': 0};
-	var lat2 = destination.lat();
-	var lng2 = destination.lng();
-	for(var i=0; i<meters.length; ++i) {
-		debugTimer('countMetersInArea', i);
-		var meter = meters[i]
-		var distance = getDistance(meter.latlng.lat(), meter.latlng.lng(), lat2, lng2);
-		if (distance <= 0.25) {
-			counts.meterCount += 1;
-			if (meter.event_type != 'SS') {
-				counts.availMeterCount += 1;
+	if (destinationPos){
+		var lat2 = destinationPos.lat();
+		var lng2 = destinationPos.lng();
+		meters.forEach(function (meter, meter_id){
+			var distance = getDistance(meter.latitude, meter.longitude, lat2, lng2);
+			if (distance <= 0.125) {
+				counts.meterCount += 1;
+				if (meter.event_type != 'SS') {
+					counts.availMeterCount += 1;
+				}
 			}
-		}
+		});
+		var countDisplay = "We found "+counts.availMeterCount+" available meters near the area!";
+
+		displayAlert(countDisplay);
 	}
 	return counts;
+}
+
+function displayAlert(display){
+	
+	var alertDiv = document.createElement('div');
+	var alert='<div type="div" class="alert alert-success alert-dismissible" role="alert" id="countAlertDiv" aria-label="Close"><button type="button" class="close" data-dismiss="alert" id="countAlertButton" aria-label="Close"><span aria-hidden="true">×</span></button>'+display+'</div>';
+
+	alertDiv.innerHTML = alert;
+	document.getElementById('mapContainer').appendChild(alertDiv.firstChild);
+
 }
 
 function getDistance(lat1, lng1, lat2, lng2) {
@@ -325,8 +357,16 @@ function getDistance(lat1, lng1, lat2, lng2) {
 	return d;
 }
 
-function updateDirections(destination) {
-	//when user is close to the desitnation (0.25 miles away), run algo to determine the meter to route user to.
+function resetView() {
+	//when user is close to the desitnation (0.25 miles away), reset zoom and recenter the map around the destination at a very close zoom
+	//first listen and determine when the treshold is hit. 
+	//run the distance calc 
+	var distance = getDistance(currentPos.lat(), currentPos.lng(), destinationPos.lat(), destinationPos.lng());
+
+	if (distance<=0.15){
+		//set zoom to x
+		map.setZoom(18);
+	}
 }
 
 });
