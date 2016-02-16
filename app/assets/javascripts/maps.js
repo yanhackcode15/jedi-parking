@@ -6,8 +6,8 @@ window.addEventListener('load', function(){
 window.smartParking = window.smartParking || {};
 var infoWindow;
 var map;
-var markers = [];
-var meters = [];
+var meters = new Map();
+var clusters = new Map();
 var myMarker;
 var watchId;
 var currentPos;
@@ -18,7 +18,7 @@ var directionsDisplay;
 
 
 var t = Date.now();
-function timer(){
+function debugTimer(){
 	var message = Array.apply(null, arguments);
 	var tx = t;
 	t = Date.now();
@@ -44,13 +44,7 @@ initMap()
 
 function getMeters(){
 	return new Promise(function(resolve, reject){
-	// var meterPromise = new Promise(function(resolve, reject){
-		timer('getMeters');
-		// if (localStorage.meters && localStorage.meters.length) {
-		// 	meters = localStorage.meters;
-		// 	timer('getMeters using localStorage');
-		// }
-
+		debugTimer('getMeters');
 		$.ajax({
 			'url': "/meters",
 			'dataType': "json"
@@ -59,64 +53,170 @@ function getMeters(){
 		.fail(reject);
 	})
 	.then(function (data) {
-		timer('getMeters callback');
-		meters = [];
-		for(var i=0; i<data.length; i++){
-			var meter = {
-				address: data[i].address,
-				latitude: data[i].latitude,
-				longitude: data[i].longitude,
-				meter_id: data[i].meter_id,
-				event_type: data[i].event_type,
-				event_time: data[i].event_time,
-				latlng: new google.maps.LatLng(data[i].latitude, data[i].longitude)
-			};
-			meters.push(meter);
-		}
-		localStorage.meters = meters;
+		debugTimer('getMeters callback');
 
-		watchId = navigator.geolocation.watchPosition(
-			function(pos){
-				var crd = pos.coords;
-				var position = new google.maps.LatLng(crd.latitude, crd.longitude);
-				myMarker.setPosition(position);
-				resetView();
-			},
-			 
-			function errorShowMyMarker(err){
-				console.warn('ERROR(' + err.code + '): ' + err.message);
-			}, 
-			{
-				enableHighAccuracy: false,
-				timeout: 5000,
-				maximumAge: 0
+		// Merge the new meter data with our existing meters
+		data.forEach(function (meterData) {
+			var meter = meters.get(meterData.meter_id) || {};
+			meter = Object.assign({}, meter, meterData);
+			meter.latlng = new google.maps.LatLng(meter.latitude, meter.longitude);
+			meters.set(meterData.meter_id, meter);
 		});
-		timer('getMeters callback finished');
+
+		// Keep a local copy of the basic meter data we have accumulated
+		var storage = [];
+		meters.forEach(function (meter, meter_id) {
+			// we use a CSV format to reduce the data size since local storage is limited
+			storage.push(meter_id);
+			storage.push(meter.address);
+			storage.push(meter.latitude);
+			storage.push(meter.longitude);
+		});
+		localStorage.meters = JSON.stringify(storage);
+
+		calculateStreetLines(clusterMeters());
+		debugTimer('getMeters callback finished');
 	});
 
 
 }
 
-function showMeterMarkers() {
+function clusterMeters() {
+	debugTimer('clusterMeters');
+	
+	meters.forEach(function (meter, meter_id) {
+		var blockNumber = (meter.address.match(/^\d+/i) / 100 | 0) * 100;
+		var streetName = meter.address.match(/\D+/i);
+		var cluster_id = blockNumber + ' ' + streetName;
+		var cluster = clusters.get(cluster_id);
+		if (!cluster) {
+			cluster = {points: [], cluster_id: cluster_id};
+			clusters.set(cluster_id, cluster);
+		}
+		cluster.points.push(meter.latlng);
+		cluster.info = cluster_id + '\n' + cluster.points.length + ' total parking spaces';
+	});
+	debugTimer('clusterMeters finished');
+	return clusters;
+}
+function calculateStreetLines(clusters) {
+	clusters.forEach(function (cluster, cluster_id) {
+		var n   = cluster.points.length;
+		var Σx  = 0;
+		var Σy  = 0;
+		var Σxy = 0;
+		var Σx2 = 0;
+		for (var i=0; i<n; ++i){
+			Σx  += cluster.points[i].lat();
+			Σy  += cluster.points[i].lng();
+			Σxy += cluster.points[i].lat() * cluster.points[i].lng();
+			Σx2 += cluster.points[i].lat() * cluster.points[i].lat();
+		}
+		var m = (n * Σxy - Σx * Σy) / (n * Σx2 - 2 * Σx); // slope
+		var b = (Σy - m * Σx) / n; // intercept
+		var μx = Σx / n;
+		var μy = Σy / n;
+
+		cluster.center = new google.maps.LatLng(μx, μy);
+		cluster.slope = m;
+		cluster.intercept = b;
+	});
+
+	// TODO: Correct clustering of street address with numeric names (e.g. 1200 21st St)
+	// TODO: find what streets intersect the view rectangle
+	// https://en.wikipedia.org/wiki/Cohen%E2%80%93Sutherland_algorithm
+	// TODO: Find intersections of streets
+	// http://zonalandeducation.com/mmts/intersections/intersectionOfTwoLines1/intersectionOfTwoLines1.html
+	// TODO: Identify what street the user is on and direction of travel
+	// TODO: Identify clusters of meters in nearby street segments to the user's locaiton. Left, Right, Forward, U-Turn groups.
+	// TODO: Draw clusters of meters as colored lines? https://developers.google.com/maps/documentation/javascript/examples/polyline-simple
+}
+
+
+
+
+function showClusterMarkers() {
 	//wrap all these inside a zoom condition so this function will only execute if zoom is less than a value
 	//retrieve current zoom
-	timer('showMeterMarkers');
+	debugTimer('showClusterMarkers');
 	currentZoom = map.getZoom();
 	var bounds = map.getBounds();
 	var displayedCount = 0;
-	// Update meters to show only if they are within the bounds
-	for (var i = 0; i < meters.length; i++) { 
-		if (i > 7000) debugger;
-		var meter = meters[i];
+	// Update meters to show only if they are within the bounds)
+	clusters.forEach(function (cluster, cluster_id) {
+		if (!cluster.center) {
+			// somehow we have a bad cluster?
+			console.info('Bad cluster:', cluster_id, cluster);
+			clusters.delete(cluster_id);
+			return;
+		}
+
+		if (!bounds.contains(cluster.center) || currentZoom < 15 || currentZoom > 17){
+			if (cluster.marker) {
+				// Remove cluster from the map
+				cluster.marker.setMap(null);
+			}
+		} else {
+			++displayedCount;
+			if (!cluster.marker) {
+				// Set up the cluster's marker
+				var icon = {
+					path: google.maps.SymbolPath.CIRCLE,
+					scale: 5,
+					fillColor: 'blue',
+					strokeColor: 'blue',
+					strokeWeight: 1,
+					fillOpacity: 0.8
+				};
+				cluster.marker = new google.maps.Marker({
+					position: cluster.center,
+					icon: icon
+				});
+
+				google.maps.event.addListener(cluster.marker, 'click', (function (marker, info) {
+					return function () {
+						infoWindow.setContent(info);
+						infoWindow.open(map, marker);
+					}
+				})(cluster.marker, cluster.info));
+			}
+			if( cluster.marker.getMap() !== map){
+				// Display the cluster on the map if it isn't already shown
+				cluster.marker.setMap(map);	
+			}
+		}
+	});
+	debugTimer('showClusterMarkers finished', 'showing ' + displayedCount+' (of '+ clusters.size +' total clusters)');
+}
+
+
+
+
+function showMeterMarkers() {
+	//wrap all these inside a zoom condition so this function will only execute if zoom is less than a value
+	//retrieve current zoom
+	debugTimer('showMeterMarkers');
+	currentZoom = map.getZoom();
+	var bounds = map.getBounds();
+	var displayedCount = 0;
+	// Update meters to show only if they are within the bounds)
+	meters.forEach(function (meter, meter_id) {
+		if (!meter.latlng) {
+			// somehow we have a bad meter?
+			console.info('Bad Meter:', meter_id, meter);
+			meters.delete(meter_id);
+			return;
+		}
+
 		if (!bounds.contains(meter.latlng) || currentZoom < 18){
-			// Only show meters when zoomed in close enough and are actually within the display area.
 			if (meter.marker) {
+				// Remove meter from the map
 				meter.marker.setMap(null);
 			}
 		} else {
-			// Set up the meter marker for only meters that will be displayed
 			++displayedCount;
-			if (!meter.marker){
+			if (!meter.marker) {
+				// Set up the meter's marker
 				var icon = {
 					path: google.maps.SymbolPath.CIRCLE,
 					scale: 5,
@@ -143,11 +243,12 @@ function showMeterMarkers() {
 				})(meter.marker, meter.address));
 			}
 			if( meter.marker.getMap() !== map){
+				// Display the meter on the map if it isn't already shown
 				meter.marker.setMap(map);	
 			}
 		}
-	}
-	timer('showMeterMarkers', 'zoom: '+currentZoom, 'showing ' + displayedCount+' (of '+meters.length+' total meters)');
+	});
+	debugTimer('showMeterMarkers finished', 'zoom: '+currentZoom, 'showing ' + displayedCount+' (of '+ meters.size +' total meters)');
 }
 
 
@@ -158,7 +259,27 @@ function handleLocationError(message) {
 
 function initMap() {
 	return new Promise(function (resolve, reject){
-		timer('initMap');
+		debugTimer('initMap');
+
+		try {
+			var storage = JSON.parse(localStorage.meters);
+			while (storage.length){
+				var meter = {
+					meter_id: ''+storage.shift(),
+					address: ''+storage.shift(),
+					latitude: +storage.shift(),
+					longitude: +storage.shift()
+				};
+				meter.latlng = new google.maps.LatLng(meter.latitude, meter.longitude);
+				meters.set(meter.meter_id, meter);
+			}
+		} catch (ignoredErr) {
+			//Failed to parse local storage meters, so we use a blank object.
+			localStorage.meters = '[]';
+			meters = new Map();
+		};
+		debugTimer('initMap got meters from local storage', meters.size);
+
 		var styles = [{"featureType":"landscape.natural","elementType":"geometry.fill","stylers":[{"visibility":"on"},{"color":"#e0efef"}]},{"featureType":"poi","elementType":"geometry.fill","stylers":[{"visibility":"on"},{"hue":"#1900ff"},{"color":"#c0e8e8"}]},{"featureType":"road","elementType":"geometry","stylers":[{"lightness":100},{"visibility":"simplified"}]},{"featureType":"road","elementType":"labels","stylers":[{"visibility":"on"}]},{"featureType":"transit.line","elementType":"geometry","stylers":[{"visibility":"on"},{"lightness":700}]},{"featureType":"water","elementType":"all","stylers":[{"color":"#7dcdcd"}]}];
 		var styledMap = new google.maps.StyledMapType(styles, {name: "Styled Map"});
 		var mapOptions = {
@@ -178,6 +299,7 @@ function initMap() {
 		map.setMapTypeId('map_style');
 		document.getElementById('mapContainer').appendChild(mapDiv);
 		google.maps.event.addListener(map, 'idle', showMeterMarkers);
+		google.maps.event.addListener(map, 'idle', showClusterMarkers);
 
 		var myMarkerIcon = {
 			path: google.maps.SymbolPath.CIRCLE,
@@ -189,7 +311,24 @@ function initMap() {
 		};
 		myMarker = new google.maps.Marker({icon: myMarkerIcon, map: map});
 		infoWindow = new google.maps.InfoWindow({map: map});
-		timer('initMap finished');
+
+
+		watchId = navigator.geolocation.watchPosition(
+			function showMyMarker(pos){
+				var crd = pos.coords;
+				var position = new google.maps.LatLng(crd.latitude, crd.longitude);
+				myMarker.setPosition(position);
+			}, 
+			function errorShowMyMarker(err){
+				console.warn('ERROR(' + err.code + '): ' + err.message);
+			}, 
+			{
+				enableHighAccuracy: false,
+				timeout: 5000,
+				maximumAge: 0
+		});
+
+		debugTimer('initMap finished');
 		resolve();
 	});
 }
@@ -197,9 +336,9 @@ function initMap() {
 
 function showRoute(){
 	return new Promise(function (resolve, reject) {
-		timer('showRoute');
+		debugTimer('showRoute');
 		if (!currentPos || !destinationPos) {
-			resolve();
+			return resolve();
 		}
 		var directionsService = new google.maps.DirectionsService();
 		var request = {
@@ -208,11 +347,11 @@ function showRoute(){
 			travelMode: google.maps.TravelMode.DRIVING
 		};
 		directionsService.route(request, function(directions, status) {
-			timer('showRoute callback');
+			debugTimer('showRoute callback');
 			if (status == google.maps.DirectionsStatus.OK) {
 				directionsDisplay = new google.maps.DirectionsRenderer({map: map, directions: directions});
 			}
-			timer('showRoute callback finished');
+			debugTimer('showRoute callback finished');
 			resolve();
 		});
 	});
@@ -220,7 +359,7 @@ function showRoute(){
 
 function geocodeSearchAddress() {
 	return new Promise(function (resolve, reject) {
-		timer('geocodeSearchAddress');
+		debugTimer('geocodeSearchAddress');
 
 		var address = smartParking.searchAddress;
 		if (''+address == ''){
@@ -228,7 +367,7 @@ function geocodeSearchAddress() {
 		}
 		var geocoder = new google.maps.Geocoder();
 		geocoder.geocode({ address: address }, function (results, status) {
-			timer('geocodeSearchAddress callback');
+			debugTimer('geocodeSearchAddress callback');
 			if (status !== google.maps.GeocoderStatus.OK) {
 				return reject('The address is either invalid or is not specific enough.');
 			}
@@ -241,7 +380,7 @@ function geocodeSearchAddress() {
 			}
 			document.getElementById('address').value = address;
 			destinationPos = results[0].geometry.location
-			timer('geocodeSearchAddress callback finished');
+			debugTimer('geocodeSearchAddress callback finished');
 			resolve();
 		});
 	});
@@ -249,14 +388,14 @@ function geocodeSearchAddress() {
 
 function getCurrentPosition() {
 	return new Promise(function (resolve, reject){
-		timer('getCurrentPosition');
+		debugTimer('getCurrentPosition');
 		if (navigator.geolocation) {
 			navigator.geolocation.getCurrentPosition(function(position) {
-				timer('getCurrentPosition callback');
+				debugTimer('getCurrentPosition callback');
 				currentPos = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
 				infoWindow.setPosition(currentPos);
 				infoWindow.setContent('You are here!');
-				timer('getCurrentPosition callback finished');
+				debugTimer('getCurrentPosition callback finished');
 				resolve();
 				// map.setCenter(pos);
 			}, function() {
@@ -271,41 +410,39 @@ function getCurrentPosition() {
 
 function removeMeterZoomingOut(){
 	//when zoom is less than 18, move meter markers off screen
-	timer('removeMeterZoomingOut');
+	debugTimer('removeMeterZoomingOut');
 	currentZoom = map.getZoom();
 	console.info('Zoom:',currentZoom);
 	var meter;
-	if (currentZoom<18){
-		for (var i = 0; i < meters.length; i++){
-			meter = meters[i];
-			if (meter.marker!=null){
+	if (currentZoom < 18){ 
+		meters.forEach(function (meter, meter_id){
+			if (meter.marker){
 				meter.marker.setMap(null);
 			}
-		}
+		});
 	}
 }
 
 function countMetersInArea() {
 	//cal the number of available and vacant parkings within half a mile walking from the destination
-	timer('countMetersInArea');
+	debugTimer('countMetersInArea');
 	var counts = {'meterCount': 0, 'availMeterCount': 0};
-	// debugger;
-	var lat2 = destinationPos.lat();
-	var lng2 = destinationPos.lng();
-	for(var i=0; i<meters.length; ++i) {
-		timer('countMetersInArea', i);
-		var meter = meters[i]
-		var distance = getDistance(meter.latlng.lat(), meter.latlng.lng(), lat2, lng2);
-		if (distance <= 0.1) {
-			counts.meterCount += 1;
-			if (meter.event_type != 'SS') {
-				counts.availMeterCount += 1;
+	if (destinationPos){
+		var lat2 = destinationPos.lat();
+		var lng2 = destinationPos.lng();
+		meters.forEach(function (meter, meter_id){
+			var distance = getDistance(meter.latitude, meter.longitude, lat2, lng2);
+			if (distance <= 0.125) {
+				counts.meterCount += 1;
+				if (meter.event_type != 'SS') {
+					counts.availMeterCount += 1;
+				}
 			}
-		}
-	}
-	var countDisplay = "We found "+counts.availMeterCount+" available meters near the area!";
+		});
+		var countDisplay = "We found "+counts.availMeterCount+" available meters near the area!";
 
-	displayAlert(countDisplay);
+		displayAlert(countDisplay);
+	}
 	return counts;
 }
 
