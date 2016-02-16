@@ -7,6 +7,7 @@ window.smartParking = window.smartParking || {};
 var infoWindow;
 var map;
 var meters = new Map();
+var clusters = new Map();
 var myMarker;
 var watchId;
 var currentPos;
@@ -72,11 +73,124 @@ function getMeters(){
 			storage.push(meter.longitude);
 		});
 		localStorage.meters = JSON.stringify(storage);
+
+		calculateStreetLines(clusterMeters());
 		debugTimer('getMeters callback finished');
 	});
 
 
 }
+
+function clusterMeters() {
+	debugTimer('clusterMeters');
+	
+	meters.forEach(function (meter, meter_id) {
+		var blockNumber = (meter.address.match(/^\d+/i) / 100 | 0) * 100;
+		var streetName = meter.address.match(/\D+/i);
+		var cluster_id = blockNumber + ' ' + streetName;
+		var cluster = clusters.get(cluster_id);
+		if (!cluster) {
+			cluster = {points: [], cluster_id: cluster_id};
+			clusters.set(cluster_id, cluster);
+		}
+		cluster.points.push(meter.latlng);
+		cluster.info = cluster_id + '\n' + cluster.points.length + ' total parking spaces';
+	});
+	debugTimer('clusterMeters finished');
+	return clusters;
+}
+function calculateStreetLines(clusters) {
+	clusters.forEach(function (cluster, cluster_id) {
+		var n   = cluster.points.length;
+		var Σx  = 0;
+		var Σy  = 0;
+		var Σxy = 0;
+		var Σx2 = 0;
+		for (var i=0; i<n; ++i){
+			Σx  += cluster.points[i].lat();
+			Σy  += cluster.points[i].lng();
+			Σxy += cluster.points[i].lat() * cluster.points[i].lng();
+			Σx2 += cluster.points[i].lat() * cluster.points[i].lat();
+		}
+		var m = (n * Σxy - Σx * Σy) / (n * Σx2 - 2 * Σx); // slope
+		var b = (Σy - m * Σx) / n; // intercept
+		var μx = Σx / n;
+		var μy = Σy / n;
+
+		cluster.center = new google.maps.LatLng(μx, μy);
+		cluster.slope = m;
+		cluster.intercept = b;
+	});
+
+	// TODO: Correct clustering of street address with numeric names (e.g. 1200 21st St)
+	// TODO: find what streets intersect the view rectangle
+	// https://en.wikipedia.org/wiki/Cohen%E2%80%93Sutherland_algorithm
+	// TODO: Find intersections of streets
+	// http://zonalandeducation.com/mmts/intersections/intersectionOfTwoLines1/intersectionOfTwoLines1.html
+	// TODO: Identify what street the user is on and direction of travel
+	// TODO: Identify clusters of meters in nearby street segments to the user's locaiton. Left, Right, Forward, U-Turn groups.
+	// TODO: Draw clusters of meters as colored lines? https://developers.google.com/maps/documentation/javascript/examples/polyline-simple
+}
+
+
+
+
+function showClusterMarkers() {
+	//wrap all these inside a zoom condition so this function will only execute if zoom is less than a value
+	//retrieve current zoom
+	debugTimer('showClusterMarkers');
+	currentZoom = map.getZoom();
+	var bounds = map.getBounds();
+	var displayedCount = 0;
+	// Update meters to show only if they are within the bounds)
+	clusters.forEach(function (cluster, cluster_id) {
+		if (!cluster.center) {
+			// somehow we have a bad cluster?
+			console.info('Bad cluster:', cluster_id, cluster);
+			clusters.delete(cluster_id);
+			return;
+		}
+
+		if (!bounds.contains(cluster.center) || currentZoom < 15 || currentZoom > 17){
+			if (cluster.marker) {
+				// Remove cluster from the map
+				cluster.marker.setMap(null);
+			}
+		} else {
+			++displayedCount;
+			if (!cluster.marker) {
+				// Set up the cluster's marker
+				var icon = {
+					path: google.maps.SymbolPath.CIRCLE,
+					scale: 5,
+					fillColor: 'blue',
+					strokeColor: 'blue',
+					strokeWeight: 1,
+					fillOpacity: 0.8
+				};
+				cluster.marker = new google.maps.Marker({
+					position: cluster.center,
+					icon: icon
+				});
+
+				google.maps.event.addListener(cluster.marker, 'click', (function (marker, info) {
+					return function () {
+						infoWindow.setContent(info);
+						infoWindow.open(map, marker);
+					}
+				})(cluster.marker, cluster.info));
+			}
+			if( cluster.marker.getMap() !== map){
+				// Display the cluster on the map if it isn't already shown
+				cluster.marker.setMap(map);	
+			}
+		}
+	});
+	debugTimer('showClusterMarkers finished', 'showing ' + displayedCount+' (of '+ clusters.size +' total clusters)');
+}
+
+
+
 
 function showMeterMarkers() {
 	//wrap all these inside a zoom condition so this function will only execute if zoom is less than a value
@@ -93,7 +207,7 @@ function showMeterMarkers() {
 			meters.delete(meter_id);
 			return;
 		}
-		
+
 		if (!bounds.contains(meter.latlng) || currentZoom < 18){
 			if (meter.marker) {
 				// Remove meter from the map
@@ -134,7 +248,7 @@ function showMeterMarkers() {
 			}
 		}
 	});
-	debugTimer('showMeterMarkers', 'zoom: '+currentZoom, 'showing ' + displayedCount+' (of '+ meters.size +' total meters)');
+	debugTimer('showMeterMarkers finished', 'zoom: '+currentZoom, 'showing ' + displayedCount+' (of '+ meters.size +' total meters)');
 }
 
 
@@ -185,6 +299,7 @@ function initMap() {
 		map.setMapTypeId('map_style');
 		document.getElementById('mapContainer').appendChild(mapDiv);
 		google.maps.event.addListener(map, 'idle', showMeterMarkers);
+		google.maps.event.addListener(map, 'idle', showClusterMarkers);
 
 		var myMarkerIcon = {
 			path: google.maps.SymbolPath.CIRCLE,
