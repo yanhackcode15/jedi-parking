@@ -44,19 +44,36 @@ class Meter < ActiveRecord::Base
 	end  
   private
   def notify_subscribers
-    client = Faye::Client.new('http://localhost:3030/faye')
-    publication = client.publish("/meters/update", {
-      'event_type' => self.event_type,
-      'event_time' => self.event_time
-    })
+    # binding.pry
+    EM.run {
+      client = Faye::Client.new('http://localhost:9292/faye')
+      # run_event_machine
+      # Thread.new { EM.run } unless EM.reactor_running?
+      # Thread.pass until EM.reactor_running?
 
-    publication.callback do
-      puts 'Message received by server!'
-    end
+      publication = client.publish("/meters/update", {
+        'event_type' => self.event_type,
+        'event_time' => self.event_time
+      })
 
-    publication.errback do |error|
-      puts 'There was a problem: ' + error.message
-    end
+      publication.callback do
+        puts 'Message received by server!'
+      end
+
+      publication.errback do |error|
+        puts 'There was a problem: ' + error.message
+      end
+
+      client.on 'transport:down' do
+        # this will run if the client detects a connection error
+        puts "connection error!"
+      end
+    }
+  end
+
+  def self.run_event_machine
+      Thread.new { EM.run } unless EM.reactor_running?
+      Thread.pass until EM.reactor_running?
   end
 
 end

@@ -371,7 +371,8 @@ function resetView() {
 }
 
 function pushSensorToClient() {
-	window.client = new Faye.Client('/faye');
+	
+	window.client = new Faye.Client('http://localhost:9292/faye');
 	var subscription = client.subscribe('/meters/update', function(payload) {
   		// handle message
 		if (payload.message){
