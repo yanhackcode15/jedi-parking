@@ -20,6 +20,11 @@
     box-shadow: none;
 }
 
+.navbar-header {
+    background-color: #1E4674;
+    opacity: 0.8;
+}
+
 button.btn.btn-default {
     border-radius: 0;
 }
@@ -51,6 +56,6 @@ body, html {
         z-index:10000;
         max-height:50px;
         border-radius:0px;
-        width: 100%
+        width:
     }
 }

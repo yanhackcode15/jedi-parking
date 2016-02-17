@@ -37,7 +37,8 @@ initMap()
 })
 .then(countMetersInArea)
 .then(showRoute)
-.catch(console.error.bind(console));
+.catch(console.error.bind(console))
+.then(pushSensorToClient);
 
 
 
@@ -121,12 +122,12 @@ function showMeterMarkers() {
 					icon: icon
 				});
 
-				google.maps.event.addListener(meter.marker, 'click', (function (marker, address) {
+				google.maps.event.addListener(meter.marker, 'click', (function (marker, address, id) {
 					return function () {
-						infoWindow.setContent(address);
+						infoWindow.setContent(address+' '+id);
 						infoWindow.open(map, marker);
 					}
-				})(meter.marker, meter.address));
+				})(meter.marker, meter.address, meter.meter_id));
 			}
 			if( meter.marker.getMap() !== map){
 				// Display the meter on the map if it isn't already shown
@@ -367,6 +368,18 @@ function resetView() {
 		//set zoom to x
 		map.setZoom(18);
 	}
+}
+
+function pushSensorToClient() {
+	window.client = new Faye.Client('/faye');
+	var subscription = client.subscribe('/meters/update', function(payload) {
+  		// handle message
+		if (payload.message){
+			//example, do something with the payload
+			//$('#comments').find('.media-list').prepend(payload.message);
+			alert('New sensor activity detected!');
+		}		
+	});
 }
 
 });

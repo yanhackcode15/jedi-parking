@@ -16,4 +16,3 @@
 //= require_tree .
 //= require bootstrap-sprockets
 //= require faye
-//= require comments

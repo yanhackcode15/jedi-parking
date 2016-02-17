@@ -20,6 +20,6 @@
 # Learn more: http://github.com/javan/whenever
 # env :PATH, ENV['PATH']
 env :GEM_PATH, ENV['GEM_PATH']
-every 5.minutes do
+every 1.minutes do
 	rake "aggregate_data:pull_sensor_data"
 end

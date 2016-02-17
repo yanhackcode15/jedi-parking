@@ -1,6 +1,7 @@
 source 'https://rubygems.org'
 
 ruby "2.2.4"
+gem "eventmachine"
 gem 'faye-rails', '~> 2.0'
 gem 'thin'
 gem 'activesupport'
