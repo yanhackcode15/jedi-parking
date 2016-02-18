@@ -375,10 +375,10 @@ function pushSensorToClient() {
 	window.client = new Faye.Client('http://localhost:9292/faye');
 	var subscription = client.subscribe('/meters/update', function(payload) {
   		// handle message
-		if (payload.message){
+  		// 
+		if (payload.message!={}){
 			//example, do something with the payload
-			//$('#comments').find('.media-list').prepend(payload.message);
-			alert('New sensor activity detected!');
+			
 		}		
 	});
 }

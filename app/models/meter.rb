@@ -1,7 +1,7 @@
 class Meter < ActiveRecord::Base
 #comment
 	validates :meter_id, :uniqueness => true
-  after_update :notify_subscribers
+  after_commit :notify_subscribers
 
 	def self.save_meter_data_from_api
 		response = HTTParty.get('http://parking.api.smgov.net/meters/')
@@ -44,12 +44,9 @@ class Meter < ActiveRecord::Base
 	end  
   private
   def notify_subscribers
-    # binding.pry
+    
     EM.run {
       client = Faye::Client.new('http://localhost:9292/faye')
-      # run_event_machine
-      # Thread.new { EM.run } unless EM.reactor_running?
-      # Thread.pass until EM.reactor_running?
 
       publication = client.publish("/meters/update", {
         'event_type' => self.event_type,
@@ -58,6 +55,7 @@ class Meter < ActiveRecord::Base
 
       publication.callback do
         puts 'Message received by server!'
+        # EM.stop
       end
 
       publication.errback do |error|
@@ -71,9 +69,9 @@ class Meter < ActiveRecord::Base
     }
   end
 
-  def self.run_event_machine
-      Thread.new { EM.run } unless EM.reactor_running?
-      Thread.pass until EM.reactor_running?
-  end
+  # def self.run_event_machine
+  #     Thread.new { EM.run } unless EM.reactor_running?
+  #     Thread.pass until EM.reactor_running?
+  # end
 
 end
