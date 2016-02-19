@@ -1,5 +1,5 @@
 class Meter < ActiveRecord::Base
-
+#comment
 	validates :meter_id, :uniqueness => true
 
 	def self.save_meter_data_from_api
