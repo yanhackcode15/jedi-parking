@@ -14,7 +14,7 @@ var currentZoom;
 var destinationMarker;
 var destinationPos;
 var directionsDisplay;
-console.log('helloworld!');
+console.log('hello sunday!');
 
 var t = Date.now();
 function debugTimer(){
