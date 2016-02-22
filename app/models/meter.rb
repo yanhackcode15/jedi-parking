@@ -1,7 +1,6 @@
 class Meter < ActiveRecord::Base
 #comment
 	validates :meter_id, :uniqueness => true
-  after_commit :notify_subscribers
 
 	def self.save_meter_data_from_api
 		response = HTTParty.get('http://parking.api.smgov.net/meters/')
@@ -42,32 +41,6 @@ class Meter < ActiveRecord::Base
       m
     end
 	end  
-  private
-  def notify_subscribers
-    
-    EM.run {
-      client = Faye::Client.new('http://localhost:9292/faye')
-
-      publication = client.publish("/meters/update", {
-        'event_type' => self.event_type,
-        'event_time' => self.event_time
-      })
-
-      publication.callback do
-        puts 'Message received by server!'
-        # EM.stop
-      end
-
-      publication.errback do |error|
-        puts 'There was a problem: ' + error.message
-      end
-
-      client.on 'transport:down' do
-        # this will run if the client detects a connection error
-        puts "connection error!"
-      end
-    }
-  end
 
   # def self.run_event_machine
   #     Thread.new { EM.run } unless EM.reactor_running?

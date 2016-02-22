@@ -371,14 +371,16 @@ function resetView() {
 }
 
 function pushSensorToClient() {
-	
+	// debugger;
 	window.client = new Faye.Client('http://localhost:9292/faye');
 	var subscription = client.subscribe('/meters/update', function(payload) {
-  		// handle message
-  		// 
-		if (payload.message!={}){
-			//example, do something with the payload
-			
+		console.log(payload);
+		if (payload && payload.message && payload.message.meter_id){
+			//update the meter info with the new event type, event time
+			var meter = meters.get(payload.message.meter_id) || payload.message;
+			meter.event_type = payload.message.event_type
+			meter.event_time = payload.message.event_time
+			meters.set(meter.meter_id, meter);
 		}		
 	});
 }
