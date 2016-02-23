@@ -20,6 +20,11 @@
     box-shadow: none;
 }
 
+.navbar-header {
+    background-color: #1E4674;
+    opacity: 0.3;
+}
+
 button.btn.btn-default {
     border-radius: 0;
 }
@@ -38,19 +43,20 @@ body, html {
 /*    top: 0;
     bottom: 0;
     width: 100%;*/
-    height: calc(100% - 50px);
-    top: 51px;
+    // height: calc(100% - 50px);
+    // top: 51px;
+    height: 100%;
     position: relative;
 
     & > div {
         height: 100%;
     }
     & > .alert {
-        top: 0px;
+        top: 51px;
         position: absolute; 
         z-index:10000;
         max-height:50px;
         border-radius:0px;
-        width: 100%
+        width: 100%;
     }
 }

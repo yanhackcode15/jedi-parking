@@ -14,7 +14,7 @@ var currentZoom;
 var destinationMarker;
 var destinationPos;
 var directionsDisplay;
-console.log('helloworld!');
+console.log('hello sunday!');
 
 var t = Date.now();
 function debugTimer(){
@@ -37,7 +37,8 @@ initMap()
 })
 .then(countMetersInArea)
 .then(showRoute)
-.catch(console.error.bind(console));
+.catch(console.error.bind(console))
+.then(pushSensorToClient);
 
 
 
@@ -103,30 +104,18 @@ function showMeterMarkers() {
 			++displayedCount;
 			if (!meter.marker) {
 				// Set up the meter's marker
-				var icon = {
-					path: google.maps.SymbolPath.CIRCLE,
-					scale: 5,
-					fillColor: 'red',
-					strokeColor: 'red',
-					strokeWeight: 1,
-					fillOpacity: 0.8
-				};
-				if (meter.event_type !== 'SS') {
-					//if not taken or unknown, make it green
-					icon.fillColor = 'green';
-					icon.strokeColor = 'green';
-				}
+				var icon = generateMeterIcon(meter);
 				meter.marker = new google.maps.Marker({
 					position: meter.latlng,
 					icon: icon
 				});
 
-				google.maps.event.addListener(meter.marker, 'click', (function (marker, address) {
+				google.maps.event.addListener(meter.marker, 'click', (function (marker, address, id) {
 					return function () {
-						infoWindow.setContent(address);
+						infoWindow.setContent(address+' '+id);
 						infoWindow.open(map, marker);
 					}
-				})(meter.marker, meter.address));
+				})(meter.marker, meter.address, meter.meter_id));
 			}
 			if( meter.marker.getMap() !== map){
 				// Display the meter on the map if it isn't already shown
@@ -135,6 +124,28 @@ function showMeterMarkers() {
 		}
 	});
 	debugTimer('showMeterMarkers', 'zoom: '+currentZoom, 'showing ' + displayedCount+' (of '+ meters.size +' total meters)');
+}
+
+function generateMeterIcon(meter){
+	var icon = {
+		path: google.maps.SymbolPath.CIRCLE,
+		scale: 5,
+		fillColor: 'red',
+		strokeColor: 'red',
+		strokeWeight: 1,
+		fillOpacity: 0.8
+	};
+	if (meter.event_type !== 'SS') {
+		//if not taken or unknown, make it green
+		icon.fillColor = 'green';
+		icon.strokeColor = 'green';
+	}
+
+	if (!!meter.marker) {
+		meter.marker.setIcon(icon);
+	}
+
+	return icon;
 }
 
 
@@ -367,6 +378,22 @@ function resetView() {
 		//set zoom to x
 		map.setZoom(18);
 	}
+}
+
+function pushSensorToClient() {
+	window.client = new Faye.Client('http://localhost:9292/faye');
+	var subscription = client.subscribe('/meters/update', function(payload) {
+		console.log(payload);
+		if (payload && payload.meter_id){
+			//update the meter info with the new event type, event time
+			var meter = meters.get(payload.meter_id) || payload;
+			meter.event_type = payload.event_type
+			meter.event_time = payload.event_time
+			meters.set(meter.meter_id, meter);
+			// Set up the meter's marker
+			generateMeterIcon(meter);
+		}		
+	});
 }
 
 });

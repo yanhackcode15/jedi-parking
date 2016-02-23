@@ -40,6 +40,11 @@ class Meter < ActiveRecord::Base
       end
       m
     end
+	end  
 
-	end
+  # def self.run_event_machine
+  #     Thread.new { EM.run } unless EM.reactor_running?
+  #     Thread.pass until EM.reactor_running?
+  # end
+
 end
