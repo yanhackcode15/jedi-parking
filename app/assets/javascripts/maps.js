@@ -104,19 +104,7 @@ function showMeterMarkers() {
 			++displayedCount;
 			if (!meter.marker) {
 				// Set up the meter's marker
-				var icon = {
-					path: google.maps.SymbolPath.CIRCLE,
-					scale: 5,
-					fillColor: 'red',
-					strokeColor: 'red',
-					strokeWeight: 1,
-					fillOpacity: 0.8
-				};
-				if (meter.event_type !== 'SS') {
-					//if not taken or unknown, make it green
-					icon.fillColor = 'green';
-					icon.strokeColor = 'green';
-				}
+				var icon = generateMeterIcon(meter);
 				meter.marker = new google.maps.Marker({
 					position: meter.latlng,
 					icon: icon
@@ -136,6 +124,28 @@ function showMeterMarkers() {
 		}
 	});
 	debugTimer('showMeterMarkers', 'zoom: '+currentZoom, 'showing ' + displayedCount+' (of '+ meters.size +' total meters)');
+}
+
+function generateMeterIcon(meter){
+	var icon = {
+		path: google.maps.SymbolPath.CIRCLE,
+		scale: 5,
+		fillColor: 'red',
+		strokeColor: 'red',
+		strokeWeight: 1,
+		fillOpacity: 0.8
+	};
+	if (meter.event_type !== 'SS') {
+		//if not taken or unknown, make it green
+		icon.fillColor = 'green';
+		icon.strokeColor = 'green';
+	}
+
+	if (!!meter.marker) {
+		meter.marker.setIcon(icon);
+	}
+
+	return icon;
 }
 
 
@@ -371,16 +381,17 @@ function resetView() {
 }
 
 function pushSensorToClient() {
-	// debugger;
 	window.client = new Faye.Client('http://localhost:9292/faye');
 	var subscription = client.subscribe('/meters/update', function(payload) {
 		console.log(payload);
-		if (payload && payload.message && payload.message.meter_id){
+		if (payload && payload.meter_id){
 			//update the meter info with the new event type, event time
-			var meter = meters.get(payload.message.meter_id) || payload.message;
-			meter.event_type = payload.message.event_type
-			meter.event_time = payload.message.event_time
+			var meter = meters.get(payload.meter_id) || payload;
+			meter.event_type = payload.event_type
+			meter.event_time = payload.event_time
 			meters.set(meter.meter_id, meter);
+			// Set up the meter's marker
+			generateMeterIcon(meter);
 		}		
 	});
 }
