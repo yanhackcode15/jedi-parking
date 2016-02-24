@@ -4,7 +4,8 @@ namespace :aggregate_data do
     current_time = (Time.now-1.hours).utc.iso8601(0).to_s
     EM.run {
       # binding.pry
-      client = Faye::Client.new('http://localhost:9292/faye')
+      # client = Faye::Client.new('http://localhost:9292/faye')
+      client = Faye::Client.new('http://jedi-parking.herokuapp.com:9292/faye')
 
       temp1 = current_time.split('-')
       temp2 = temp1[2].split(':')
