@@ -383,7 +383,8 @@ function resetView() {
 
 function pushSensorToClient() {
 	// window.client = new Faye.Client('http://localhost:9292/faye'); //dev environment configuration
-	faye_url = 'http://jedi-parking.herokuapp.com:'+$PORT+'/faye';
+	// faye_url = 'http://jedi-parking.herokuapp.com:'+$PORT+'/faye';
+	faye_url = 'http://jedi-parking.herokuapp.com/faye';
 	window.client = new Faye.Client(faye_url); //production configuration
 	var subscription = client.subscribe('/meters/update', function(payload) {
 		console.log(payload);

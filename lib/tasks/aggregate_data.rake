@@ -5,7 +5,8 @@ namespace :aggregate_data do
     EM.run {
       # binding.pry
       # client = Faye::Client.new('http://localhost:9292/faye')
-      url = 'http://jedi-parking.herokuapp.com:'+$PORT+'/faye'
+      # url = 'http://jedi-parking.herokuapp.com:'+$PORT+'/faye'
+      url = 'http://jedi-parking.herokuapp.com/faye'
       client = Faye::Client.new(url)
 
       temp1 = current_time.split('-')
