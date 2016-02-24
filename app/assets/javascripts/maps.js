@@ -14,6 +14,7 @@ var currentZoom;
 var destinationMarker;
 var destinationPos;
 var directionsDisplay;
+var faye_url;
 console.log('hello sunday!');
 
 var t = Date.now();
@@ -382,7 +383,8 @@ function resetView() {
 
 function pushSensorToClient() {
 	// window.client = new Faye.Client('http://localhost:9292/faye'); //dev environment configuration
-	window.client = new Faye.Client('http://jedi-parking.herokuapp.com:9292/faye'); //production configuration
+	faye_url = 'http://jedi-parking.herokuapp.com:'+$PORT+'/faye';
+	window.client = new Faye.Client(faye_url); //production configuration
 	var subscription = client.subscribe('/meters/update', function(payload) {
 		console.log(payload);
 		if (payload && payload.meter_id){
