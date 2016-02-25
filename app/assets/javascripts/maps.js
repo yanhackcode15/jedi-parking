@@ -15,7 +15,7 @@ var destinationMarker;
 var destinationPos;
 var directionsDisplay;
 var faye_url;
-console.log('hello sunday!');
+console.log('hello wednesday!');
 
 var t = Date.now();
 function debugTimer(){
@@ -382,10 +382,10 @@ function resetView() {
 }
 
 function pushSensorToClient() {
-	// window.client = new Faye.Client('http://localhost:9292/faye'); //dev environment configuration
-	// faye_url = 'http://jedi-parking.herokuapp.com:'+$PORT+'/faye';
-	faye_url = 'http://jedi-parking.herokuapp.com/faye';
-	window.client = new Faye.Client(faye_url); //production configuration
+	window.client = new Faye.Client('http://localhost:9292/faye'); //dev environment configuration
+	
+	// faye_url = 'http://jedi-parking.herokuapp.com/faye';
+	// window.client = new Faye.Client(faye_url); //production configuration
 	var subscription = client.subscribe('/meters/update', function(payload) {
 		console.log(payload);
 		if (payload && payload.meter_id){
