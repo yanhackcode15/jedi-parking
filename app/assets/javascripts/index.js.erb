@@ -1,6 +1,9 @@
 // Place all the behaviors and hooks related to the matching controller here.
 // All this logic will automatically be available in application.js.
 "use strict";
+
+window.smartParking = window.smartParking || {};
+
 window.addEventListener('load', function(){
 
 window.smartParking = window.smartParking || {};
@@ -15,9 +18,8 @@ var destinationMarker;
 var destinationPos;
 var directionsDisplay;
 var faye_url;
-console.log('hello wednesday evening!');
-var websocket_end_point = <%= @websocket_end_point %>;
-console.log(websocket_end_point);
+// console.log('hello wednesday evening!');
+// console.log(smartParking.websocket_end_point);
 
 var t = Date.now();
 function debugTimer(){
@@ -384,10 +386,8 @@ function resetView() {
 }
 
 function pushSensorToClient() {
-	window.client = new Faye.Client('http://localhost:9292/faye'); //dev environment configuration
-	// var websocket_end_point = "'"+ <%= @websocket_end_point %>+"'";
-	// console.log(websocket_end_point);
-	// window.client = new Faye.Client(websocket_end_point); //dev environment configuration
+	// window.client = new Faye.Client('http://localhost:9292/faye'); //dev environment configuration
+	window.client = new Faye.Client(smartParking.websocket_end_point); //dev environment configuration
 
 	// faye_url = 'http://jedi-parking.herokuapp.com/faye';
 	// window.client = new Faye.Client(faye_url); //production configuration

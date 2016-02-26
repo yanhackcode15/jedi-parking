@@ -7,6 +7,10 @@
   <!--<%= javascript_include_tag 'http://localhost:9292/faye/client.js' %> -->
   <!--<%= javascript_include_tag 'http://jedi-parking.herokuapp.com/faye/client.js' %> -->
   <%= csrf_meta_tags %>
+  <script>
+  window.smartParking = window.smartParking || {};
+  smartParking.websocket_end_point = "<%= Rails.configuration.x.websocket_end_point %>";
+  </script>
 
 </head>
 <body>
