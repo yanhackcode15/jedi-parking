@@ -24,6 +24,6 @@ module JediParking
     config.active_record.raise_in_transactional_callbacks = true
     # config.assets.version = '1.0'
     config.middleware.delete Rack::Lock
-    # config.middleware.use FayeRails::Middleware, mount: '/faye', :timeout => 25
+    config.middleware.use FayeRails::Middleware, mount: '/faye', :timeout => 25
   end
 end
