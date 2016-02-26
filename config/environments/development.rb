@@ -1,7 +1,8 @@
 Rails.application.configure do
+  #custom configurations
+  config.x.websocket_end_point = 'http://localhost:9292/faye'
   # Settings specified here will take precedence over those in config/application.rb.
-  # config.assets.prefix = "/assets_dev"
-  
+
   # In the development environment your application's code is reloaded on
   # every request. This slows down response time but is perfect for development
   # since you don't have to restart the web server when you make code changes.
@@ -26,6 +27,8 @@ Rails.application.configure do
   # Debug mode disables concatenation and preprocessing of assets.
   # This option may cause significant delays in view rendering with a large
   # number of complex assets.
+  # config.assets.prefix = "/assets_dev" #will force it to compile
+  config.serve_static_files = false #tell rails not to serve assets in public/assets
   config.assets.debug = true
 
   # Asset digests allow you to set far-future HTTP expiration dates on all assets,

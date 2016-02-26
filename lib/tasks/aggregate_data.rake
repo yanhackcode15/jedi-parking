@@ -3,10 +3,12 @@ namespace :aggregate_data do
   task pull_sensor_data: :environment do
     current_time = (Time.now-1.hours).utc.iso8601(0).to_s
     EM.run {
-      client = Faye::Client.new('http://localhost:9292/faye')
+      # client = Faye::Client.new('http://localhost:9292/faye')
 
       # url = 'http://jedi-parking.herokuapp.com/faye'
       # client = Faye::Client.new(url)
+      puts Rails.configuration.x.websocket_end_point
+      client = Faye::Client.new(Rails.configuration.x.websocket_end_point)
 
       temp1 = current_time.split('-')
       temp2 = temp1[2].split(':')
