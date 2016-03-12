@@ -17,13 +17,11 @@
 <div class="navbar navbar-default navbar-fixed-top">
    <div class="container">
       <div class="navbar-header">
-         <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+         <button type="button" class="navbar-toggle pull-left" data-toggle="collapse" data-target=".navbar-collapse">
          <span class="icon-bar"></span>
          <span class="icon-bar"></span>
          <span class="icon-bar"></span>
          </button>
-         <a class="navbar-brand hidden-xs" href="#">PDot</a>
-         <a class="navbar-brand visible-xs" href="#">PDot</a>
          <form id="search" class="navbar-form pull-left" role="search" action="/maps">
             <div class="input-group">
                <input id="address" name="address" type="text" class="form-control" placeholder="Street Address or a Place Name" value="<%= @address %>">
@@ -32,6 +30,7 @@
                </div>
             </div>
          </form>
+         <button type="button" class="btn btn-link geolocation pull-right" id="geolocation">
       </div>
       <div class="navbar-collapse collapse">
          <ul class="nav navbar-nav navbar-right">

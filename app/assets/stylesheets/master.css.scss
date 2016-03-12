@@ -60,3 +60,18 @@ body, html {
         width: 100%;
     }
 }
+
+
+#search {
+    width: 75%;
+}
+
+.btn.geolocation {
+    background: image-url('geolocation_icon.png');
+    background-size: contain;
+    height: 35px;
+    width: 35px;
+    margin-top: 8px;
+    margin-bottom:8px;    
+}
+
