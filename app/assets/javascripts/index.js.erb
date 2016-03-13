@@ -33,7 +33,6 @@ function debugTimer(){
 
 initMap()
 .then(function(){
-	// getMeters();
 	return Promise.all([
 		getMeters(),
 		getCurrentPosition(),
@@ -291,6 +290,12 @@ function getCurrentPosition() {
 	return new Promise(function (resolve, reject){
 		debugTimer('getCurrentPosition');
 		if (navigator.geolocation) {
+			var getCurrentPositionOptions = {
+				enableHighAccuracy: true,
+				timeout: 5000,
+				maximumAge: 500 //cache for half a second
+			};
+
 			navigator.geolocation.getCurrentPosition(function(position) {
 				debugTimer('getCurrentPosition callback');
 				currentPos = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
@@ -301,7 +306,8 @@ function getCurrentPosition() {
 				// map.setCenter(pos);
 			}, function() {
 				handleLocationError('Error: Your browser doesn\'t support geolocation.');
-			});
+			},
+			getCurrentPositionOptions);
 		} else {
 			// Browser doesn't support Geolocation
 			handleLocationError('Error: The Geolocation service failed.');
@@ -386,11 +392,9 @@ function resetView() {
 }
 
 function pushSensorToClient() {
-	// window.client = new Faye.Client('http://localhost:9292/faye'); //dev environment configuration
+	
 	window.client = new Faye.Client(smartParking.websocket_end_point); //dev environment configuration
 
-	// faye_url = 'http://jedi-parking.herokuapp.com/faye';
-	// window.client = new Faye.Client(faye_url); //production configuration
 	var subscription = client.subscribe('/meters/update', function(payload) {
 		console.log(payload);
 		if (payload && payload.meter_id){
@@ -403,6 +407,21 @@ function pushSensorToClient() {
 			generateMeterIcon(meter);
 		}		
 	});
+}
+
+
+function proximityBasedZoomIn(changeZoom, currentZoom, newZoom) {
+	//retrieve distance from destination
+	var distance = getDistance(currentPos.lat(), currentPos.lng(), destinationPos.lat(), destionationPos.lng());
+	//when distance <=0.5, set zoom closer
+	if (distance<=0.5 && newZoom != currentZoom) {
+		map.setZoom(newZoom);
+	}
+}
+
+function getPosWhenMoving() {
+	//if the object is moving, update the position
+	
 }
 
 });
