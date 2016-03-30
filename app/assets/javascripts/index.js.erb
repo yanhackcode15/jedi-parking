@@ -98,7 +98,7 @@ function showMeterMarkers() {
 			meters.delete(meter_id);
 			return;
 		}
-		
+
 		if (!bounds.contains(meter.latlng) || currentZoom < 18){
 			if (meter.marker) {
 				// Remove meter from the map
@@ -123,7 +123,7 @@ function showMeterMarkers() {
 			}
 			if( meter.marker.getMap() !== map){
 				// Display the meter on the map if it isn't already shown
-				meter.marker.setMap(map);	
+				meter.marker.setMap(map);
 			}
 		}
 	});
@@ -192,7 +192,7 @@ function initMap() {
 				mapTypeIds: [google.maps.MapTypeId.ROADMAP, 'map_style']
 			}
 		};
-		
+
 		var mapDiv = document.createElement('div');
 		mapDiv.setAttribute('id', 'map');
 		map = new google.maps.Map(mapDiv, mapOptions);
@@ -218,10 +218,10 @@ function initMap() {
 				var crd = pos.coords;
 				var position = new google.maps.LatLng(crd.latitude, crd.longitude);
 				myMarker.setPosition(position);
-			}, 
+			},
 			function errorShowMyMarker(err){
 				console.warn('ERROR(' + err.code + '): ' + err.message);
-			}, 
+			},
 			{
 				enableHighAccuracy: false,
 				timeout: 5000,
@@ -286,7 +286,9 @@ function geocodeSearchAddress() {
 	});
 }
 
+document.getElementById('geolocation').addEventListener('click', getCurrentPosition);
 function getCurrentPosition() {
+	console.log("I am triggering this function")
 	return new Promise(function (resolve, reject){
 		debugTimer('getCurrentPosition');
 		if (navigator.geolocation) {
@@ -303,7 +305,7 @@ function getCurrentPosition() {
 				infoWindow.setContent('You are here!');
 				debugTimer('getCurrentPosition callback finished');
 				resolve();
-				// map.setCenter(pos);
+				map.setCenter(currentPos);
 			}, function() {
 				handleLocationError('Error: Your browser doesn\'t support geolocation.');
 			},
@@ -321,7 +323,7 @@ function removeMeterZoomingOut(){
 	currentZoom = map.getZoom();
 	console.info('Zoom:',currentZoom);
 	var meter;
-	if (currentZoom < 18){ 
+	if (currentZoom < 18){
 		meters.forEach(function (meter, meter_id){
 			if (meter.marker){
 				meter.marker.setMap(null);
@@ -354,7 +356,7 @@ function countMetersInArea() {
 }
 
 function displayAlert(display){
-	
+
 	var alertDiv = document.createElement('div');
 	var alert='<div type="div" class="alert alert-success alert-dismissible" role="alert" id="countAlertDiv" aria-label="Close"><button type="button" class="close" data-dismiss="alert" id="countAlertButton" aria-label="Close"><span aria-hidden="true">×</span></button>'+display+'</div>';
 
@@ -381,8 +383,8 @@ function getDistance(lat1, lng1, lat2, lng2) {
 
 function resetView() {
 	//when user is close to the desitnation (0.25 miles away), reset zoom and recenter the map around the destination at a very close zoom
-	//first listen and determine when the treshold is hit. 
-	//run the distance calc 
+	//first listen and determine when the treshold is hit.
+	//run the distance calc
 	var distance = getDistance(currentPos.lat(), currentPos.lng(), destinationPos.lat(), destinationPos.lng());
 
 	if (distance<=0.15){
@@ -392,7 +394,7 @@ function resetView() {
 }
 
 function pushSensorToClient() {
-	
+
 	window.client = new Faye.Client(smartParking.websocket_end_point); //dev environment configuration
 
 	var subscription = client.subscribe('/meters/update', function(payload) {
@@ -405,7 +407,7 @@ function pushSensorToClient() {
 			meters.set(meter.meter_id, meter);
 			// Set up the meter's marker
 			generateMeterIcon(meter);
-		}		
+		}
 	});
 }
 
@@ -421,7 +423,7 @@ function proximityBasedZoomIn(changeZoom, currentZoom, newZoom) {
 
 function getPosWhenMoving() {
 	//if the object is moving, update the position
-	
+
 }
 
 });
