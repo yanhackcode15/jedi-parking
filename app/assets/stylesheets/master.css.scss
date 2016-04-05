@@ -50,13 +50,14 @@ body, html {
 }
 
 .btn.geolocation {
-    background: image-url('geolocation_icon.png');
+    background: image-url('geolocation_icon2.png');
+    background-repeat: no-repeat;
     background-size: contain;
-    height: 35px;
-    width: 35px;
+    height: 30px;
+    width: 30px;
     margin-top: 8px;
     margin-bottom:8px;
-    margin-right:2px;    
+    margin-right:5px;    
 }
 
 .navbar-default {
@@ -64,9 +65,6 @@ body, html {
     background-color: initial !important;
 }
 
-.icon-bar {
-    color: black;
-}
 .navbar-toggle {
     border: none;
 }
@@ -76,7 +74,7 @@ body, html {
 }
 
 .navbar-default .navbar-toggle .icon-bar {
-    background-color: #000 !important;
+    background-color: #FFF !important;
 }
 
 .navbar-toggle .icon-bar {
