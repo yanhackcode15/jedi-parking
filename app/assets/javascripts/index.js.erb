@@ -44,7 +44,7 @@ initMap()
 .catch(console.error.bind(console))
 .then(pushSensorToClient);
 
-
+proximityBasedZoomIn(currentZoom, 25);
 
 function getMeters(){
 	return new Promise(function(resolve, reject){
@@ -410,7 +410,7 @@ function pushSensorToClient() {
 }
 
 
-function proximityBasedZoomIn(changeZoom, currentZoom, newZoom) {
+function proximityBasedZoomIn(currentZoom, newZoom) {
 	//retrieve distance from destination
 	var distance = getDistance(currentPos.lat(), currentPos.lng(), destinationPos.lat(), destionationPos.lng());
 	//when distance <=0.5, set zoom closer
