@@ -3,26 +3,13 @@
 This README would normally document whatever steps are necessary to get the
 application up and running.
 
-Things you may want to cover:
 
-* Ruby version
+On dev, run each of the command in separate terminal:
+* $rails server thin -p 3000 -e development -b 0.0.0.0
+* $rackup faye.ru -s thin -E production --host 0.0.0.0
 
-* System dependencies
-
-* Configuration
-
-* Database creation
-
-* Database initialization
-
-* How to run the test suite
-
-* Services (job queues, cache servers, search engines, etc.)
-
-* Deployment instructions
-
-* ...
-
-
-Please feel free to use a different markup language if you do not plan to run
-<tt>rake doc:app</tt>.
+Database creation and initilization:
+* rake db:create:all
+* rake db:migrate
+* Meter.save_meter_data_from_api
+* Meter.initial_add_sensor_data
