@@ -374,7 +374,7 @@ function getDistance(lat1, lng1, lat2, lng2) {
 	var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
 	var d = R * c;
-	return d;
+	return 2 * d; // TODO Why is this formula only giving half the real distance?????
 }
 
 function receiveMeterUpdates() {
