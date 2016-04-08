@@ -18,6 +18,7 @@ var myMarker;
 var watchId;
 // console.log('hello wednesday evening!');
 // console.log(smartParking.websocket_end_point);
+var debugMarker; // debug
 
 var t = Date.now();
 function debugTimer(){
@@ -181,7 +182,7 @@ function initMap() {
 			zoom: 18,
 			minZoom: 10,
 			scaleControl: true,
-			center: new google.maps.LatLng(34.024212, -118.496475),
+			center: new google.maps.LatLng(33.9895138, -118.42890510000001),
 			mapTypeControlOptions: {
 				mapTypeIds: [google.maps.MapTypeId.ROADMAP, 'map_style']
 			}
@@ -196,6 +197,8 @@ function initMap() {
 		document.getElementById('mapContainer').appendChild(mapDiv);
 		google.maps.event.addListener(map, 'idle', showMeterMarkers);
 
+
+
 		var myMarkerIcon = {
 			path: google.maps.SymbolPath.CIRCLE,
 			scale: 5,
@@ -204,9 +207,27 @@ function initMap() {
 			strokeWeight: 2,
 			fillOpacity: 1
 		};
-		// myMarker = new google.maps.Marker({icon: myMarkerIcon, map: map});
-		myMarker = new google.maps.Marker({icon: "/img/moving_icon.png", map: map});
+		myMarker = new google.maps.Marker({icon: myMarkerIcon, map: map});
+		//myMarker = new google.maps.Marker({icon: "/img/moving_icon.png", map: map});
 		infoWindow = new google.maps.InfoWindow({map: map});
+
+		// DEBUGGING STUFF
+
+		debugMarker = new google.maps.Marker({icon: {
+			path: google.maps.SymbolPath.CIRCLE,
+			scale: 5,
+			fillColor: '#FF8888',
+			strokeColor: '#880000',
+			strokeWeight: 2,
+			fillOpacity: 1
+		}, map: map});
+		google.maps.event.addListener(map, 'click', function(event) {
+			// THIS WHOLE EVENT LISTENER IS FOR DEBUGGING
+			currentPos = event.latLng;
+			handleLocationChange();
+		});
+		// END DEBUGGING STUFF
+
 
 		// debugTimer('initMap finished');
 		resolve();
@@ -270,36 +291,34 @@ function watchCurrentPosition() {
 	var firstTime = !watchId;
 	return new Promise(function (resolve, reject){
 		// debugTimer('watchCurrentPosition');
+		if (!navigator &&! navigator.geolocation) handleLocationError('Error: The Geolocation service failed.')
+		
+		if (!firstTime) return;
+		var watchCurrentPositionOptions = {
+			enableHighAccuracy: true,
+			timeout: 2000,
+			maximumAge: 500
+		};
 
-		if (firstTime && navigator.geolocation) {
-			var watchCurrentPositionOptions = {
-				enableHighAccuracy: true,
-				timeout: 1000,
-				maximumAge: 250 // cache for a quarter second
-			};
+		watchId = navigator.geolocation.watchPosition(function(position) {
+			debugTimer('watchCurrentPosition callback');
+			currentPos = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+			handleLocationChange()
 
-			watchId = navigator.geolocation.watchPosition(function(position) {
-				debugTimer('watchCurrentPosition callback');
-				currentPos = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
-				handleLocationChange()
-
-				if (firstTime) {
-					firstTime = false;
-					// Show an amazingly useful message on top of the user telling them they are here.
-					// infoWindow.setPosition(currentPos);
-					// infoWindow.setContent('You are here!');
-					resolve();
-				}
-				debugTimer('watchCurrentPosition callback finished');
-				// map.setCenter(pos);
-			}, function() {
-				handleLocationError('Error: Your browser doesn\'t support geolocation.');
-			},
-			watchCurrentPositionOptions);
-		} else {
-			// Browser doesn't support Geolocation
-			handleLocationError('Error: The Geolocation service failed.');
-		}
+			if (firstTime) {
+				firstTime = false;
+				resolve();
+			}
+			debugTimer('watchCurrentPosition callback finished');
+		}, function(error) {	
+			switch (error.code || 0){
+				case 3: // Timeout Expired
+					break;
+				default:
+				handleLocationError(error.message || error || null);
+			}
+		},
+		watchCurrentPositionOptions);
 	});
 }
 
@@ -380,10 +399,26 @@ function proximityBasedZoomAndCenter() {
 	if (!currentPos || !currentPos.lat || !destinationPos || !destinationPos.lat) return;
 	if (!autoZoomControl) return; // If the user manually changes the zoom, we stop automatically adjusting it.
 
-	var destinationDistance = getDistance(
+	var distance = getDistance(
 		currentPos.lat(), currentPos.lng(),
 		destinationPos.lat(), destinationPos.lng()
 	);
+	console.log('Distance to destination:', distance);
+	
+	var centerPos = new google.maps.LatLng(
+		(destinationPos.lat() - currentPos.lat())/2 + currentPos.lat(),
+		(destinationPos.lng() - currentPos.lng())/2 + currentPos.lng()
+	);
+	console.log('Distance to center:', getDistance(
+		currentPos.lat(), currentPos.lng(),
+		centerPos.lat(), centerPos.lng()
+	));
+
+	var currentCenter = map.getCenter();
+	debugMarker.setPosition(centerPos);
+	if (currentCenter.lat() !== centerPos.lat() || currentCenter.lng() !== centerPos.lng()) {
+		map.setCenter(centerPos);
+	}
 
 	// Does our current display show enough?
 	// Meters per pixel: 156543.03392 * Math.cos(latLng.lat() * Math.PI / 180) / Math.pow(2, zoom)
@@ -391,8 +426,8 @@ function proximityBasedZoomAndCenter() {
 	var currentZoom = map.getZoom();
 	var newZoom;
 
-	//newZoom = currentZoom + (destinationDistance > visibleDistance) ? -1 : +1;
-	if (destinationDistance <= 0.5) newZoom = 18;
+	//newZoom = currentZoom + (distance > visibleDistance) ? -1 : +1;
+	if (distance <= 0.1) newZoom = 18;
 
 	if (newZoom && newZoom !== currentZoom) {
 		map.setZoom(newZoom);
@@ -402,9 +437,11 @@ function proximityBasedZoomAndCenter() {
 	// todo: center map on area that is midline between currentpos and destinationpos
 }
 
-window.smartParking.debugSetCurrentPos = function(lat,lng){
+window.smartParking.getDistance = getDistance;
+window.smartParking.getCurrentPos = function(){console.log(currentPos.lat(),currentPos.lng())}
+window.smartParking.getDestinationPos = function(){console.log(destinationPos.lat(),destinationPos.lng())}
+window.smartParking.setCurrentPos = function(lat,lng){
 	// window.smartParking.debugSetCurrentPos(34.024212, -118.496475)
-	console.clear();
 	currentPos = new google.maps.LatLng(lat, lng)
 	handleLocationChange()
 }
