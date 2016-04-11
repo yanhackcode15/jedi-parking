@@ -94,3 +94,8 @@ button.btn.btn-default{
     border-top-left-radius: 0;
     border-bottom-left-radius:0;
 }
+
+.fade-out {
+    transition: opacity .25s ease-in;
+    opacity: 0;
+}

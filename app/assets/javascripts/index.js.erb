@@ -353,11 +353,16 @@ function countMetersInArea() {
 
 function displayAlert(display){
 	
-	var alertDiv = document.createElement('div');
-	var alert='<div type="div" class="alert alert-success alert-dismissible" role="alert" id="countAlertDiv" aria-label="Close"><button type="button" class="close" data-dismiss="alert" id="countAlertButton" aria-label="Close"><span aria-hidden="true">×</span></button>'+display+'</div>';
-
-	alertDiv.innerHTML = alert;
-	document.getElementById('mapContainer').appendChild(alertDiv.firstChild);
+	var tempDiv = document.createElement('div');
+	tempDiv.innerHTML = '<div type="div" class="alert alert-success alert-dismissible" role="alert" id="countAlertDiv" aria-label="Close"><button type="button" class="close" data-dismiss="alert" id="countAlertButton" aria-label="Close"><span aria-hidden="true">×</span></button>'+display+'</div>';;
+	var alertDiv = tempDiv.firstChild;
+	document.getElementById('mapContainer').appendChild(alertDiv);
+	setTimeout(function(){
+		alertDiv.classList.add('fade-out');
+	}, 5000);
+	setTimeout(function(){
+		alertDiv.remove();
+	}, 5250);
 
 }
 
@@ -420,21 +425,13 @@ function proximityBasedZoomAndCenter() {
 		map.setCenter(centerPos);
 	}
 
-	// Does our current display show enough?
-	// Meters per pixel: 156543.03392 * Math.cos(latLng.lat() * Math.PI / 180) / Math.pow(2, zoom)
+	var bounds = new google.maps.LatLngBounds();
+	bounds.extend(destinationPos);
+	bounds.extend(currentPos);
+	map.fitBounds(bounds);
 
 	var currentZoom = map.getZoom();
-	var newZoom;
-
-	//newZoom = currentZoom + (distance > visibleDistance) ? -1 : +1;
-	if (distance <= 0.1) newZoom = 18;
-
-	if (newZoom && newZoom !== currentZoom) {
-		map.setZoom(newZoom);
-		console.log('zoooooom! set!', newZoom);
-	}
-
-	// todo: center map on area that is midline between currentpos and destinationpos
+	if (currentZoom > 18) map.setZoom(18);
 }
 
 window.smartParking.getDistance = getDistance;
