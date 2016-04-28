@@ -288,7 +288,10 @@ function geocodeSearchAddress() {
 	});
 }
 
+document.getElementById('geolocation').addEventListener('click', watchCurrentPosition);
+
 function watchCurrentPosition() {
+	console.log("I am triggering watchCurrentPosition");
 	var firstTime = !watchId;
 	return new Promise(function (resolve, reject){
 		// debugTimer('watchCurrentPosition');
