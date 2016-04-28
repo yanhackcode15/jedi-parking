@@ -93,7 +93,7 @@ function showMeterMarkers() {
 			meters.delete(meter_id);
 			return;
 		}
-		
+
 		if (!bounds.contains(meter.latlng) || currentZoom < 18){
 			if (meter.marker) {
 				// Remove meter from the map
@@ -118,7 +118,7 @@ function showMeterMarkers() {
 			}
 			if( meter.marker.getMap() !== map){
 				// Display the meter on the map if it isn't already shown
-				meter.marker.setMap(map);	
+				meter.marker.setMap(map);
 			}
 		}
 	});
@@ -183,11 +183,12 @@ function initMap() {
 			minZoom: 10,
 			scaleControl: true,
 			center: new google.maps.LatLng(33.9895138, -118.42890510000001),
+			scrollwheel: false,
 			mapTypeControlOptions: {
 				mapTypeIds: [google.maps.MapTypeId.ROADMAP, 'map_style']
 			}
 		};
-		
+
 		var mapDiv = document.createElement('div');
 		mapDiv.setAttribute('id', 'map');
 
@@ -292,7 +293,7 @@ function watchCurrentPosition() {
 	return new Promise(function (resolve, reject){
 		// debugTimer('watchCurrentPosition');
 		if (!navigator &&! navigator.geolocation) handleLocationError('Error: The Geolocation service failed.')
-		
+
 		if (!firstTime) return;
 		var watchCurrentPositionOptions = {
 			enableHighAccuracy: true,
@@ -310,7 +311,7 @@ function watchCurrentPosition() {
 				resolve();
 			}
 			debugTimer('watchCurrentPosition callback finished');
-		}, function(error) {	
+		}, function(error) {
 			switch (error.code || 0){
 				case 3: // Timeout Expired
 					break;
@@ -352,7 +353,7 @@ function countMetersInArea() {
 }
 
 function displayAlert(display){
-	
+
 	var tempDiv = document.createElement('div');
 	tempDiv.innerHTML = '<div type="div" class="alert alert-success alert-dismissible" role="alert" id="countAlertDiv" aria-label="Close"><button type="button" class="close" data-dismiss="alert" id="countAlertButton" aria-label="Close"><span aria-hidden="true">×</span></button>'+display+'</div>';;
 	var alertDiv = tempDiv.firstChild;
@@ -383,7 +384,7 @@ function getDistance(lat1, lng1, lat2, lng2) {
 }
 
 function receiveMeterUpdates() {
-	
+
 	window.client = new Faye.Client(smartParking.websocket_end_point); //dev environment configuration
 
 	var subscription = client.subscribe('/meters/update', function(payload) {
@@ -409,7 +410,7 @@ function proximityBasedZoomAndCenter() {
 		destinationPos.lat(), destinationPos.lng()
 	);
 	console.log('Distance to destination:', distance);
-	
+
 	var centerPos = new google.maps.LatLng(
 		(destinationPos.lat() - currentPos.lat())/2 + currentPos.lat(),
 		(destinationPos.lng() - currentPos.lng())/2 + currentPos.lng()
